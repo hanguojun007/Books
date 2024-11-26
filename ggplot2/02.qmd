@@ -1,19 +1,21 @@
-
 加载R包和数据
+
 ```{r}
 library(ggplot2)
 mpg
 ```
+
 ## key components
-ggplot 至少要求三个组件
-* data
-* aesthetics
-* geoms
+
+ggplot 至少要求三个组件 \* data \* aesthetics \* geoms
+
 ```{r}
 ggplot(mpg, aes(x = displ, y = hwy)) +
   geom_point()
 ```
+
 ### Exercises
+
 ```{r}
 ggplot(mpg, aes(model, manufacturer)) + geom_point()
 ```

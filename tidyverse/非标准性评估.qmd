@@ -1,0 +1,133 @@
+# tidyverse中的非标准性评估
+
+对于非标准性评估的执念起于一个想法：生成list时，name是动态传参的，如下面的函数所示。但其结果确是：list 的name属性依然是`name`而不是`a`。当然可以再添加一行，修改name属性。后来接触到tidyverse，了解到非标准型评估具有类似的功能，但依然不能实现该功能，因为非标准性评估只适用于tidyverse系列R包代码中。
+
+```{r}
+test1 <- function(name, vectors) {
+  res <- list(name = vectors)
+  res
+}
+test1("a", 1:10)
+# $name
+#  [1]  1  2  3  4  5  6  7  8  9 10
+
+test2 <- function(name, vectors) {
+  res <- list(name = vectors)
+  names(res) <- name
+  res
+}
+test2("a", 1:10)
+# $a
+# [1]  1  2  3  4  5  6  7  8  9 10
+```
+
+## 环境变量与数据变量
+
+在tidyverse中，将变量分为了两类；环境变量——`df`，数据变量——`Group`,`Height`。
+
+```{r}
+df <- data.frame(
+  Group = c("A", "A", "A", "B", "B", "B"),
+  Height = c(111, 123, 115, 221, 232, 228)
+)
+df
+```
+
+写这样一个函数：提供数据与分组列，生成一个新的统计了均值的矩阵。如下所示，当运行时，显示找不到`group`，如果没了解过非标准性评估，会觉得该如何让`group = Group` `col = Height`?
+
+```{r}
+library(tidyverse)
+summarise_mean <- function(data, group, col) {
+  data %>%
+    group_by(group) %>%
+    summarise(mean = mean(col))
+}
+summarise_mean(df, Group, Height)
+# Error in `group_by()`:
+# ! Must group by variables found in `.data`.
+# ✖ Column `group` is not found.
+# Run `rlang::last_trace()` to see where the error occurred.
+```
+
+## 将环境变量转换为数据变量
+
+### enquo 与 !! 连用
+
+`enquo`函数可以将输入的环境变量当作数据变量储存起来，然后使用`!!`进行释放
+
+```{r}
+summarise_mean <- function(data, group, col) {
+  data %>%
+    group_by(!!enquo(group)) %>%
+    summarise(Mean = mean(!!enquo(col)))
+}
+summarise_mean(df, Group, Height)
+```
+
+### {{ }}
+
+使用`{{var}}` 可以直接实现变量类型的转换
+
+```{r}
+summarise_mean <- function(data, group, col) {
+  data %>%
+    group_by({{ group }}) %>%
+    summarise(Mean = mean({{ col }}))
+}
+summarise_mean(df, Group, Height)
+```
+
+## sym 将字符串转变为变量名
+
+上面的方法构建的函数依然是在你已知了数据框结构，直接使用函数的情况。考虑下面这种情况：你对你将要处理的数据框中的数据变量名一无所知，只知道它在第几列或者列名中包含某些字符。此时上述方法失效了。
+
+```{r}
+summarise_mean <- function(data, group, col) {
+  data %>%
+    group_by({{ group }}) %>%
+    summarise(Mean = mean({{ col }}))
+}
+# 假设通过某些方法确定你要使用第一列作为分组，统计第二列的均值
+col1 <- colnames(df)[1]
+col2 <- colnames(df)[2]
+summarise_mean(df, col1, col2)
+
+# Error in `group_by()`:
+# ! Must group by variables found in `.data`.
+# ✖ Column `col1` is not found.
+# Run `rlang::last_trace()` to see where the error occurred.
+```
+
+此时，`sym()` 就很好解决了这个问题。该函数的作用是将一个字符串`string` 转换为一个`symbol`也即一个变量名
+
+```{r}
+summarise_mean <- function(data, group, col) {
+  a <- sym(group)
+  b <- sym(col)
+  data %>%
+    group_by(!!enquo(a)) %>%
+    summarise(Mean = mean(!!enquo(b)))
+}
+# 假设通过某些方法确定你要使用第一列作为分组，统计第二列的均值
+col1 <- colnames(df)[1]
+col2 <- colnames(df)[2]
+summarise_mean(df, col1, col2)
+```
+
+上述代码中`sym`解析的值必须传给另外一个变量名，才能够被`!!enquo()`解析，当然也可以省略，写成`!!sym()`。
+
+```{r}
+summarise_mean <- function(data, group, col) {
+  data %>%
+    group_by(!!sym(group)) %>%
+    summarise(Mean = mean(!!sym(col)))
+}
+
+col1 <- colnames(df)[1]
+col2 <- colnames(df)[2]
+summarise_mean(df, col1, col2)
+```
+
+------------------------------------------------------------------------
+
+本篇教程参考了：https://bookdown.org/wangminjie/R4DS/tidyverse-tidyeval.html，`vignette("programming")`
