@@ -1,0 +1,57 @@
+# ggplot中的基础geom
+
+首先生成示例数据，下面我们将常见的geom按照点，线，面来分别介绍。
+
+```{r}
+library(ggplot2)
+df <- data.frame(
+  x = c(3, 1, 5),
+  y = c(2, 4, 6),
+  label = c("a", "b", "c")
+)
+p <- ggplot(df, aes(x, y, label = label)) +
+  labs(x = NULL, y = NULL) + # Hide axis label
+  coord_equal() +
+  theme(plot.title = element_text(size = 12)) # Shrink plot title
+```
+
+## 点
+
+有关点的geom有：geom_point()，geom_text()，geom_bar()。可能对于bar的分类你有所困惑，但是仔细观察图，可以发现：bar图的高度与点的位置是重合的。
+
+```{r}
+p + geom_point() + ggtitle("point")
+p + geom_text() + ggtitle("text")
+p + geom_bar(stat = "identity") + ggtitle("bar")
+```
+
+## 线
+
+有关线的geom有：geom_path()，geom_line()。两个函数的作用方式都是将左右相邻的点用线连接起来，唯一的区别是如何定义左右相邻。当你将点绘制到图上时，geom_line会根据点在x轴上的值顺序来判断左右相邻；geom_path则根据你将点绘制到图上时的顺序来判断左右。 注：ggplot中点的绘制顺序依据点对应数据的行顺序；不同geom，代码中先写的先绘制，最后写的位于图层顶层。
+
+```{r}
+p + geom_line() + ggtitle("line")
+p + geom_path() + ggtitle("path")
+```
+
+## 面
+
+有关面的geom有：geom_area()，geom_ploygon()，geom_rect()，geom_tile()，geom_raster()。
+
+-   geom_area()：先根据geom_line绘制出线，然后线与x轴围成的区域。
+
+-   geom_ploygon()：先根据geom_path绘制出线，然后将线首尾相连形成区域。
+
+-   geom_rect()：根据xmin,ymin,xmax,ymax确定四个点，然后类似geom_ploygon绘制区域。
+
+-   geom_tile()：将数据的点视作中心点，然后根据width，height，确定绘制区域。
+
+-   geom_raster()：将geom_tile的width，height设定为相等时的特殊geom_tile。
+
+```{r}
+p + geom_area() + ggtitle("area")
+p + geom_polygon() + ggtitle("polygon")
+p + geom_rect(aes(xmin = x - 0.5, xmax = x + 0.5, ymin = y, ymax = y + 1))
+p + geom_tile(width = 0.7) + ggtitle("tile")
+p + geom_raster() + ggtitle("raster")
+```
