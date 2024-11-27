@@ -128,6 +128,38 @@ col2 <- colnames(df)[2]
 summarise_mean(df, col1, col2)
 ```
 
+## 列名动态化 :=
+使用`:=`可以在符号左边实现动态化赋值。左边的格式同上面描述一样，有symbol格式的`{{}}`，也有string格式的`'{}'。
+```{r}
+# string
+tag1 <- "string"
+tag2 <- sym("symbol")
+df <- tibble::tibble(
+  "{tag1}_Group" := c("A", "A", "A", "B", "B", "B"),
+  !!tag2 := c(111, 123, 115, 221, 232, 228)
+)
+df
+# # A tibble: 6 × 2
+#   string_Group symbol
+#   <chr>         <dbl>
+# 1 A               111
+# 2 A               123
+# 3 A               115
+# 4 B               221
+# 5 B               232
+# 6 B               228
+```
+
+## list name属性动态化
+回到最初的问题，使用`:=`可以实现列名的动态更新，那么只需用`as.list`即可将tibble转换为list，实现list，name属性动态化。
+```{r}
+as.list(df)
+# $string_Group
+# [1] "A" "A" "A" "B" "B" "B"
+
+# $symbol
+# [1] 111 123 115 221 232 228
+```
 ------------------------------------------------------------------------
 
 本篇教程参考了：https://bookdown.org/wangminjie/R4DS/tidyverse-tidyeval.html，`vignette("programming")`
