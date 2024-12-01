@@ -1,7 +1,7 @@
 ---
 title: "ggplot中的group映射"
 author: "大番薯本薯"
-format: "markdown"
+format: "commonmark"
 fig-width: 5
 fig-align: center
 execute:
