@@ -1,0 +1,182 @@
+# ggplot 中添加注释信息
+
+## 各种title
+
+使用`labs`为图，轴 ，图例添加title。
+
+```{r}
+library(tidyverse)
+ggplot(mpg, aes(displ, hwy)) +
+  geom_point(aes(colour = factor(cyl))) +
+  labs(
+    x = "Engine displacement (litres)",
+    y = "Highway miles per gallon",
+    colour = "Number of cylinders",
+    title = "Mileage by engine size and cylinders",
+    subtitle = "Source: https://fueleconomy.gov"
+  )
+```
+
+使用quote来显示数学公式，更多规则见 `?plotmath`。
+
+```{r}
+values <- seq(from = -2, to = 2, by = .01)
+df <- data.frame(x = values, y = values^3)
+ggplot(df, aes(x, y)) +
+  geom_path() +
+  labs(y = quote(f(x) == x^3))
+```
+
+使用`ggtext::element_markdown()`显示markdown格式。
+
+```{r}
+df <- data.frame(x = 1:3, y = 1:3)
+base <- ggplot(df, aes(x, y)) +
+  geom_point() +
+  labs(x = "Axis title with *italics* and **boldface**")
+
+base
+base + theme(axis.title.x = ggtext::element_markdown())
+```
+
+## 文本注释
+
+ggplot 使用`geom_text()`来添加文本信息
+
+其可用映射：
+
+-   family
+-   fontface: plain, **bold**, *italic*
+-   size
+-   angle
+-   hjust: left, center, right, inward, outward
+-   vjust: bottom, middle, top, inward, outward
+
+其他参数：
+
+-   nudge_x, nudge_y
+-   check_overlap，如果TRUE，会移除将要覆盖已存在标记的文本。
+
+```{r}
+library(ggplot2)
+ggplot(mpg, aes(displ, hwy)) +
+  geom_text(aes(label = model)) +
+  xlim(1, 8)
+
+ggplot(mpg, aes(displ, hwy)) +
+  geom_text(aes(label = model), check_overlap = TRUE) +
+  xlim(1, 8)
+
+```
+
+在ggplot中添加文本信息存在一些挑战以及应对措施：
+
+-   文本的size大小有固定的物理大小，不会随着绘图设备界面大小进行缩放。
+-   使用ggrepel::geom_text_repel()，避免文本重叠。
+-   使用ggfittext::geom_fit_text()，控制文本样式。
+
+## 自定义注释信息
+
+-   使用ggplot自身的一些geom函数来添加注释信息：
+-   geom_text(),geom_label() 添加文本
+-   geom_rect() 添加注释区域
+-   geom_line(),geom_path(),geom_segment(),geom_curve() 添加标记线
+-   geom_vline(),geom_hline(),geom_abline() 添加参考线
+-   annotate() 另外一种geom形式，可以省去`data`,`aes`等参数。
+
+下面是两个示例：
+
+#### 失业率时间曲线图
+
+```{r}
+presidential <- subset(presidential, start > economics$date[1])
+
+ggplot(economics) +
+  geom_rect(
+    aes(xmin = start, xmax = end, fill = party),
+    ymin = -Inf, ymax = Inf, alpha = 0.2,
+    data = presidential
+  ) +
+  geom_vline(
+    aes(xintercept = as.numeric(start)),
+    data = presidential,
+    colour = "grey50", alpha = 0.5
+  ) +
+  geom_text(
+    aes(x = start, y = 2500, label = name),
+    data = presidential,
+    size = 3, vjust = 0, hjust = 0, nudge_x = 50
+  ) +
+  geom_line(aes(date, unemploy)) +
+  scale_fill_manual(values = c("blue", "red")) +
+  xlab("date") +
+  ylab("unemployment")
+```
+
+#### 标记Subaru厂家的点
+
+```{r}
+ggplot(mpg, aes(displ, hwy)) +
+  geom_point(
+    data = dplyr::filter(mpg, manufacturer == "subaru"),
+    colour = "orange",
+    size = 3
+  ) +
+  geom_point() +
+  annotate(
+    geom = "curve", x = 4, y = 35, xend = 2.65, yend = 27,
+    curvature = .3, arrow = arrow(length = unit(2, "mm"))
+  ) +
+  annotate(geom = "text", x = 4.1, y = 35, label = "subaru", hjust = "left")
+```
+
+## 直接标记
+
+实践中有很多类似上面不使用图例，而直接将class标注在图上的需求。下面介绍三种直接标注方法：
+
+#### directlabels::geom_dl()
+
+官方参考：https://tdhock.github.io/directlabels/
+
+```{r}
+ggplot(mpg, aes(displ, hwy, colour = class)) +
+  geom_point()
+
+ggplot(mpg, aes(displ, hwy, colour = class)) +
+  geom_point(show.legend = FALSE) +
+  directlabels::geom_dl(aes(label = class), method = "smart.grid")
+```
+
+#### ggforce::geom_mark_ellipse()
+
+官方参考：https://ggforce.data-imaginist.com/reference/index.html
+
+```{r}
+ggplot(mpg, aes(displ, hwy)) +
+  geom_point() +
+  ggforce::geom_mark_ellipse(aes(label = cyl, group = cyl))
+```
+
+#### gghighlight::gghighlight()
+
+官方参考：https://github.com/yutannihilation/gghighlight
+
+该方法适合高亮点和线
+
+```{r}
+data(Oxboys, package = "nlme")
+ggplot(Oxboys, aes(age, height, group = Subject)) +
+  geom_line() +
+  geom_point() +
+  gghighlight::gghighlight(Subject %in% 1:3)
+
+```
+
+同时还能结合分面
+
+```{r}
+ggplot(mpg, aes(displ, hwy, colour = factor(cyl))) +
+  geom_point() +
+  gghighlight::gghighlight() +
+  facet_wrap(vars(cyl))
+```

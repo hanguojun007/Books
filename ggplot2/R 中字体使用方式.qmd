@@ -1,0 +1,101 @@
+# R 中字体使用方式
+## font
+
+字体类型大体上可分为：TrueType(后缀.ttf)，PostScript(R使用)，OpenType(前两者的并集)。其中TrueType适用于电子图像设备显示，PostScript适用于印刷打印。
+
+我们很多时候都困惑于为什么R在输出文件时不能使用系统种存在的字体，原因是：R在输出文件时使用的字体类型与系统自带的字体类型不同，需要进行转换才能使用。
+
+ggplot推荐两种进行加载字体的包：showtext，extrafont。下面我简单描述一下两者的不同：
+
+-   字体范围上，showtext能加载更多类型的字体，extrafont截至目前的0.13版本任只适配TrueType。
+
+-   使用方式上，showtext每次开启新的R session时需要重新加载字体，extrafont只需加载一次即可。
+
+在实际使用中，鉴于我们只使用常见的科研文章类的TrueType字体，所有推荐使用extrafont，更加便捷；当需要使用更加复杂的字体时，使用showtext。
+
+## extrafont 使用
+
+官方文档：https://github.com/wch/extrafont
+
+-   `font_import()`载入字体到extrafontdb，只需要执行一次即可，后续每次开启新的R session 都能使用；添加新的字体需要重新运行。
+-   `loadfonts()`将extrafontdb中的TrueType字体转变为PDF/PostScript字体。在0.13版本后只需在`font_import()`运行后执行一次即可。 后续只需要使用`library(extrafont)`就能使用加载过的字体。
+-   官方教程中的`embed_fonts()`我在实际测试中并未使用到。
+
+```{shell}
+# 本人的系统环境是Ubuntu22，想要使用Arial字体，需要先安装微软字体并同意许可证
+apt-get install ttf-mscorefonts-installer
+```
+
+```{r}
+library(extrafont)
+font_import() # 查找ttf字体路径并记录到extrafontdb中
+fonts() # 查看可用ttf字体
+fonttable() # 查看可用ttf字体
+loadfonts() # ttf字体转换为PostScript字体
+
+library(ggplot2)
+p <- ggplot(mtcars, aes(x = wt, y = mpg)) +
+  geom_point() +
+  ggtitle("Fuel Efficiency of 32 Cars") +
+  xlab("Weight (x1000 lb)") +
+  ylab("Miles per Gallon") +
+  theme(text = element_text(size = 16, family = "Impact"))
+
+ggsave("font_ggplot.pdf", plot = p, width = 4, height = 4)
+```
+
+## showtext
+
+官方文档：https://github.com/yixuan/showtext
+
+-   `font_paths()`查看可用字体路径，`font_files()`查看可用字体，`font_add()`加载字体。
+
+-   `showtext_auto()`自动将字体转换为画图设备需要的格式。
+
+-   绘图，保存图片。
+
+-   `showtext_auto(FALSE)`释放加载的字体
+
+下面是在windows上的使用示例，这里不再演示。
+
+```{r}
+library(showtext)
+## Add fonts that are available on Windows
+font_add("heiti", "simhei.ttf")
+font_add("constan", "constan.ttf", italic = "constani.ttf")
+
+library(ggplot2)
+p <- ggplot(NULL, aes(x = 1, y = 1)) +
+  ylim(0.8, 1.2) +
+  theme(
+    axis.title = element_blank(), axis.ticks = element_blank(),
+    axis.text = element_blank()
+  ) +
+  annotate("text", 1, 1.1,
+    family = "heiti", size = 15,
+    label = "\u4F60\u597D\uFF0C\u4E16\u754C"
+  ) +
+  annotate("text", 1, 0.9,
+    label = 'Chinese for "Hello, world!"',
+    family = "constan", fontface = "italic", size = 12
+  )
+
+## Automatically use showtext for new devices
+showtext_auto()
+
+## On-screen device
+x11()
+print(p)
+dev.off()
+
+## PDF device
+pdf("showtext-example-3.pdf", 7, 4)
+print(p)
+dev.off()
+
+## PNG device
+ggsave("showtext-example-4.png", width = 7, height = 4, dpi = 96)
+
+## Turn off if no longer needed
+showtext_auto(FALSE)
+```
