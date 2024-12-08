@@ -1,0 +1,220 @@
+---
+title: "ggplot 中轴的scale(part1)"
+author: "大番薯本薯"
+format: "html"
+fig-width: 5
+fig-align: center
+execute:
+  warning: false
+---
+
+# ggplot 中轴的scale(part1)
+
+## 连续变量
+
+`scale_x_continuous()` and `scale_y_continuous()`
+
+### Limits
+
+使用参数limit来设置轴的范围，想只设置一边，另一边设为`NA`即可。
+
+ggplot中有类似`lab()`的函数`lims()`来设置x，y轴范围。
+
+```{r}
+#| layout-ncol: 2
+library(tidyverse)
+mpg_99 <- mpg %>% filter(year == 1999)
+mpg_08 <- mpg %>% filter(year == 2008)
+
+base_99 <- ggplot(mpg_99, aes(displ, hwy)) +
+  geom_point()
+base_08 <- ggplot(mpg_08, aes(displ, hwy)) +
+  geom_point()
+
+base_99 + lims(x = c(1, 7), y = c(10, 45))
+base_08 + lims(x = c(1, 7), y = c(10, 45))
+```
+
+不同于上面分开绘制图时，需要设置x，y轴范围从而可以直观比较图，ggplot 中的分面会自动设置每个分面的轴范围是相同的。
+
+```{r}
+ggplot(mpg, aes(displ, hwy)) +
+  geom_point() +
+  facet_wrap(vars(year))
+```
+
+### Zooming in
+
+ggplot使用`coord_cartesian`放大图中某些区域。
+
+虽然单纯使用`ylim()`同样可以起到放大图片的效果，但是ggplot会删除掉不在轴范围的点，同时也会改变数据的分布。
+
+```{r}
+#| layout-ncol: 3
+base <- ggplot(mpg, aes(drv, hwy)) +
+  geom_hline(yintercept = 28, colour = "red") +
+  geom_boxplot()
+
+base
+base + coord_cartesian(ylim = c(10, 35)) # works as expected
+base + ylim(10, 35) # distorts the boxplot
+#> Warning: Removed 6 rows containing non-finite values (`stat_boxplot()`).
+```
+
+### Expansion
+
+如果你仔细观察ggplot绘制的图会发现，坐标轴总是会离最近的点有一些距离。ggplot默认对连续变量延长了5%，对离散变量延长了0.6unit。
+
+通过设置`expand = expansion()`我们可以实现不同范围的延长。`expansion()`有两个参数，都会同时设置轴的两边：
+
+-   add：增加
+-   mult：倍数增加
+
+也可以通过给定一个长度为4的向量来设置，如下图中的`c(.05, 0, 2, 0)`，解释为：下/左-multi，下/左-add，上/右-multi，上/右-add。
+
+```{r}
+#| layout-ncol: 3
+base <- ggplot(faithfuld, aes(waiting, eruptions)) +
+  geom_raster(aes(fill = density)) +
+  theme(legend.position = "none") +
+  labs(x = NULL, y = NULL)
+
+# Additive expansion of three units on both axes
+base +
+  scale_x_continuous(expand = expansion(add = 3)) +
+  scale_y_continuous(expand = expansion(add = 3))
+
+# Multiplicative expansion of 20% on both axes
+base +
+  scale_x_continuous(expand = expansion(mult = .2)) +
+  scale_y_continuous(expand = expansion(mult = .2))
+
+# Multiplicative expansion of 5% at the lower end of each axes,
+# and 20% at the upper end; for the y-axis the expansion is
+# set directly instead of using expansion()
+base +
+  scale_x_continuous(expand = expansion(mult = c(.05, .2))) +
+  scale_y_continuous(expand = c(.05, 0, .2, 0))
+```
+
+### Break
+
+ggplot通过设置`breaks`参数，来设置图中或图例中的轴刻线如何分布。
+
+```{r}
+#| layout-ncol: 3
+toy <- data.frame(
+  const = 1,
+  up = 1:4,
+  txt = letters[1:4],
+  big = (1:4) * 1000,
+  log = c(2, 5, 10, 2000)
+)
+
+base <- ggplot(toy, aes(big, const)) +
+  geom_point() +
+  labs(x = NULL, y = NULL) +
+  scale_y_continuous(breaks = NULL)
+
+base
+base + scale_x_continuous(breaks = c(1000, 2000, 4000))
+base + scale_x_continuous(breaks = c(1000, 1500, 2000, 4000))
+```
+
+如上所示，`break`通常接受一个向量来描述刻线分布，但也可以传递一个函数来描述。
+
+这个函数要求： - 只接收一个参数：长度为2的数字型向量，描述轴的范围。 - 输出一个数字型向量，描述刻线分布。
+
+`scales`包提供了很多便捷的函数：
+
+-   `scales::breaks_extended()` ggplot默认函数，用来创建连续型变量轴的刻线分布。
+-   `scales::breaks_log()` 创建轴-log的刻线分布。
+-   `scales::breaks_pretty()` 创建时间类型轴的刻线分布。
+-   `scales::breaks_width()` 创建步长相等的刻线分布。
+
+```{r}
+#| layout-ncol: 3
+base
+base + scale_x_continuous(breaks = scales::breaks_extended())
+base + scale_x_continuous(breaks = scales::breaks_extended(n = 2))
+base + scale_x_continuous(breaks = scales::breaks_width(800))
+base + scale_x_continuous(breaks = scales::breaks_width(800, offset = 200))
+base + scale_x_continuous(breaks = scales::breaks_width(800, offset = -200))
+```
+
+### Minor breaks
+
+使用参数`minor_breaks`为轴添加次刻线。用法同`breaks`，提供一个向量或函数。
+
+`scales` 同样提供了类似的函数：`scales::minor_breaks_n()` `scales::minor_breaks_width()`
+
+```{r}
+#| layout-ncol: 2
+mb <- unique(as.numeric(1:10 %o% 10^(0:3)))
+
+base <- ggplot(toy, aes(log, const)) +
+  geom_point() +
+  labs(x = NULL, y = NULL) +
+  scale_y_continuous(breaks = NULL)
+
+base + scale_x_log10()
+base + scale_x_log10(minor_breaks = mb)
+```
+
+### Labels
+
+ggplot通过参数`labels`设置刻线的标签。
+
+类似`breaks`，`label`也接受一个与`breaks`等长的向量，或输入是`breaks`，输出是等长的函数。
+
+同样`scales`提供了一些函数：
+
+-   `scales::label_bytes()` formats numbers as kilobytes, megabytes etc.
+-   `scales::label_comma()` formats numbers as decimals with commas added.
+-   `scales::label_dollar()` formats numbers as currency.
+-   `scales::label_ordinal()` formats numbers in rank order: 1st, 2nd, 3rd etc.
+-   `scales::label_percent()` formats numbers as percentages.
+-   `scales::label_pvalue()` formats numbers as p-values: \<.05, \<.01, .34, etc.
+
+```{r}
+#| layout-ncol: 3
+base <- ggplot(toy, aes(big, const)) +
+  geom_point() +
+  labs(x = NULL, y = NULL) +
+  scale_x_continuous(breaks = NULL)
+
+base
+base + scale_y_continuous(labels = scales::label_percent())
+base + scale_y_continuous(
+  labels = scales::label_dollar(prefix = "", suffix = "€")
+)
+```
+
+当设置`breaks = NULL`时，会自动去除图中`label`，反之则不会。
+
+```{r}
+#| layout-ncol: 2
+base + scale_y_continuous(breaks = NULL)
+base + scale_y_continuous(labels = NULL)
+```
+
+### Transformations
+
+对于连续型轴，ggplot提供了一系列进行轴转换的方法，类似`scale_x_log10()`,`scale_x_reverse()`。但其更深层的原因是参数`trans`或`transform`（新版ggplot的参数为后者）。
+
+参数接受一个转换器，描述了轴如何反转，刻线及标签是什么。转换器由`scales`包提供，你可以使用`scales::trans_new()`自己创建，或者提供一个转换器。
+
+`scales`包提供的转换器如下，包括Name和Transformer。二者都可以进行传参。
+
+![](image/CsU3kRTvJi.png){fig-align="center" width="600"}
+
+```{r}
+#| layout-ncol: 2
+ggplot(mpg, aes(displ, hwy)) +
+  geom_point() +
+  scale_y_continuous(trans = "reciprocal")
+
+ggplot(mpg, aes(displ, hwy)) +
+  geom_point() +
+  scale_y_continuous(trans = scales::reciprocal_trans())
+```
