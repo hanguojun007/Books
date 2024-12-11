@@ -1,0 +1,60 @@
+---
+title: "ggplot 中轴的scale(part2)"
+author: "大番薯本薯"
+format: "html"
+fig-width: 3
+fig-align: center
+execute:
+  warning: false
+---
+
+# ggplot 中轴的scale(part2)
+
+## 时间类型轴
+
+R中由两种时间类型：Date（dates），POSIXct（date-times）。两者都是以1970-01-01为始点开始计算，不同的是前者只计算年月日，后者包括时分秒。在ggplot中两者分别对应`scale_x_date()`, `scale_x_datetime()`。
+
+```{r}
+library(tidyverse)
+#| eval: false
+as.Date(111)
+# [1] "1970-04-22"
+as.POSIXct(111)
+# [1] "1970-01-01 00:01:51 UTC"
+```
+
+### Breaks
+
+ggplot 中不论`scale_x_date`，`scale_x_datetime`都有`date_breaks`参数。该参数可使用的单位有:years, months, weeks, days, hours, minutes, and seconds。
+
+```{r}
+#| layout-ncol: 2
+date_base <- ggplot(economics, aes(date, psavert)) +
+  geom_line(na.rm = TRUE) +
+  labs(x = NULL, y = NULL)
+
+date_base
+date_base + scale_x_date(date_breaks = "15 years")
+```
+
+date_breaks 参数的本质是 `scales::breaks_width` 函数。虽然可以便捷地使用参数，但使用函数可以添加参数 `offset`。
+
+```{r}
+#| eval: false
+the_year <- as.Date(c("2021-01-01", "2021-12-31"))
+set_breaks <- scales::breaks_width("1 month")
+set_breaks(the_year)
+#>  [1] "2021-01-01" "2021-02-01" "2021-03-01" "2021-04-01" "2021-05-01"
+#>  [6] "2021-06-01" "2021-07-01" "2021-08-01" "2021-09-01" "2021-10-01"
+#> [11] "2021-11-01" "2021-12-01" "2022-01-01"
+set_breaks <- scales::breaks_width("1 month", offset = 8)
+set_breaks(the_year)
+#>  [1] "2021-01-09" "2021-02-09" "2021-03-09" "2021-04-09" "2021-05-09"
+#>  [6] "2021-06-09" "2021-07-09" "2021-08-09" "2021-09-09" "2021-10-09"
+#> [11] "2021-11-09" "2021-12-09" "2022-01-09"
+set_breaks <- scales::breaks_width("1 month", offset = 8)
+set_breaks(the_year)
+#>  [1] "2021-01-09" "2021-02-09" "2021-03-09" "2021-04-09" "2021-05-09"
+#>  [6] "2021-06-09" "2021-07-09" "2021-08-09" "2021-09-09" "2021-10-09"
+#> [11] "2021-11-09" "2021-12-09" "2022-01-09"
+```
