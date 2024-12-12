@@ -2,7 +2,8 @@
 title: "ggplot 中轴的scale(part2)"
 author: "大番薯本薯"
 format: "html"
-fig-width: 3
+fig-width: 4
+fig-height: 3
 fig-align: center
 execute:
   warning: false
@@ -52,9 +53,120 @@ set_breaks(the_year)
 #>  [1] "2021-01-09" "2021-02-09" "2021-03-09" "2021-04-09" "2021-05-09"
 #>  [6] "2021-06-09" "2021-07-09" "2021-08-09" "2021-09-09" "2021-10-09"
 #> [11] "2021-11-09" "2021-12-09" "2022-01-09"
-set_breaks <- scales::breaks_width("1 month", offset = 8)
-set_breaks(the_year)
-#>  [1] "2021-01-09" "2021-02-09" "2021-03-09" "2021-04-09" "2021-05-09"
-#>  [6] "2021-06-09" "2021-07-09" "2021-08-09" "2021-09-09" "2021-10-09"
-#> [11] "2021-11-09" "2021-12-09" "2022-01-09"
+```
+
+### Minor breaks
+
+ggplot 提供使用时间单位作为`minor break`的参数: `date_minor_breaks`。如下图默认是以均值进行划分，添加参数后，使用周作为划分。
+
+```{r}
+#| layout-ncol: 2
+df <- data.frame(y = as.Date(c("2022-01-01", "2022-04-01")))
+base <- ggplot(df, aes(y = y)) +
+  labs(y = NULL) +
+  theme_minimal() +
+  theme(
+    panel.grid.major = element_line(colour = "black"),
+    panel.grid.minor = element_line(colour = "grey50")
+  )
+
+base + scale_y_date(date_breaks = "1 month")
+base +
+  scale_y_date(date_breaks = "1 month", date_minor_breaks = "1 week")
+```
+
+### Labels
+
+ggplot 提供了修改时间轴刻度标签的参数：`date_labels`，更加方便对时间进行标准化。如下图左边显示的是年-月-日，中间只显示去除了世纪的年。有关时间标准化的内容参考：https://ggplot2-book.org/scales-position#sec-date-labels。同时scales包提供了很多与此参数相关的函数：
+
+-   scales::label_date()，ggplot默认函数
+-   scales::label_date_short() 自动将日期标签缩减至合适，如下图右边。
+
+```{r}
+#| layout-ncol: 3
+base <- ggplot(economics, aes(date, psavert)) +
+  geom_line(na.rm = TRUE) +
+  labs(x = NULL, y = NULL)
+
+base + scale_x_date(date_breaks = "5 years")
+base + scale_x_date(date_breaks = "5 years", date_labels = "%y")
+base + scale_x_date(labels = scales::label_date_short())
+```
+
+## 离散型变量轴
+
+ggplot 在处理x或y轴是离散型变量时，会自动使用`scale_x_discrete`, `scale_y_discrete`，如下图中左中两图完全一致。虽然是离散型变量，但在ggplot的底层逻辑中，使用正数来进行标记，如下右图，这也就是为什么因子化的离散型变量会按照因子的level顺序显示。
+
+```{r}
+#| layout-ncol: 3
+ggplot(mpg, aes(x = hwy, y = class)) +
+  geom_point()
+
+ggplot(mpg, aes(x = hwy, y = class)) +
+  geom_point() +
+  scale_x_continuous() +
+  scale_y_discrete()
+
+ggplot(mpg, aes(x = hwy, y = class)) +
+  geom_point() +
+  annotate("text", x = 5, y = 1:7, label = 1:7)
+```
+
+离散型变量轴同样有`limits`, `breaks`, `labels`三个参数，使用方法与连续型变量轴大致相同。主要区别在`limits`需要一个离散型字符串向量，这个向量会影响轴上标签的顺序，如下图
+
+```{r}
+#| layout-ncol: 2
+toy <- data.frame(
+  const = 1,
+  up = 1:4,
+  txt = letters[1:4],
+  big = (1:4) * 1000,
+  log = c(2, 5, 10, 2000)
+)
+base <- ggplot(toy, aes(const, txt)) +
+  geom_label(aes(label = txt)) +
+  scale_x_continuous(breaks = NULL) +
+  labs(x = NULL, y = NULL)
+
+base
+base + scale_y_discrete(limits = c("d", "c", "a", "b"))
+```
+
+离散变量型轴的标签常常会重叠，下面是两种解决重叠的方法。
+
+```{r}
+#| layout-ncol: 3
+base <- ggplot(mpg, aes(manufacturer, hwy)) +
+  geom_boxplot()
+base
+base + scale_x_discrete(guide = guide_axis(n.dodge = 3))
+base + scale_x_discrete(guide = guide_axis(angle = 90))
+```
+
+## Binned position 轴
+
+此类型轴类似于离散型变量轴，是将连续变量划分为不同的区间，当作离散变量进行绘图；常常用于绘制`geom_histogram`。
+
+下图是绘制频数分布图的两种方式。
+
+```{r}
+#| layout-ncol: 2
+ggplot(mpg, aes(hwy)) +
+  geom_histogram(bins = 8)
+ggplot(mpg, aes(hwy)) +
+  geom_bar() +
+  scale_x_binned()
+```
+
+一种画气泡图的变体，无需先生成数据。
+
+```{r}
+#| layout-ncol: 2
+base <- ggplot(mpg, aes(displ, hwy)) +
+  geom_count()
+
+base
+base +
+  scale_x_binned(n.breaks = 15) +
+  scale_y_binned(n.breaks = 15)
 ```
