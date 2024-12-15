@@ -1,0 +1,177 @@
+---
+title: "ggplot 中的颜色scale(part1)"
+author: "大番薯本薯"
+format: "html"
+fig-width: 4
+fig-height: 4
+fig-align: center
+execute:
+  warning: false
+---
+
+# ggplot 中的颜色scale
+
+ggplot 使用`scale_fill_*()`, `scale_color_*()`, `scale_colour_*()` 进行颜色映射。同轴的scale一样，颜色映射时也分为连续型，离散型，时间，bined处理四种。
+
+## 颜色理论
+
+ggplot 使用HCL颜色域，H-hue，C-chroma，L-luminance。H是色调，范围是360°；C是饱和度，范围是0-亮度最大值；L是亮度，范围是0（黑色）-1（白色）。
+
+由于人眼视觉系统的不同，在颜色搭配上推荐更加鲁棒性的色系，例如`viridis`。
+
+`colorBlindness::displayAllColors()` 展示在不同视角中的颜色.
+
+```{r}
+#| layout-ncol: 2
+
+colorBlindness::displayAllColors(rainbow(6))
+colorBlindness::displayAllColors(viridis::viridis(6))
+```
+
+## 连续变量的颜色映射
+
+### 颜色集
+
+ggplot 整合了许多颜色集方便使用，例如
+
+-   brewer系列，参数大致相同，使用`type`和`palette`选择颜色集。
+    -   `scale_*_brewer()` 适用离散型变量
+    -   `scale_*_distiller()` 适用连续型变量
+    -   `scale_*_fermenter()` 适用bined处理的变量
+
+-   viridis系列，使用`option`选择颜色集。
+    -   `scale_*_viridis_d()` 适用离散型变量
+    -   `scale_*_viridis_c()` 适用连续型变量
+    -   `scale_*_viridis_b()` 适用bined处理的变量
+
+`palatteer`包提供了很多颜色集，详细见：https://pmassicotte.github.io/paletteer_gallery/
+
+```{r}
+library(tidyverse)
+erupt <- ggplot(faithfuld, aes(waiting, eruptions, fill = density)) +
+  geom_raster() +
+  scale_x_continuous(NULL, expand = c(0, 0)) +
+  scale_y_continuous(NULL, expand = c(0, 0)) +
+  theme(legend.position = "none")
+
+```
+
+```{r}
+#| layout-ncol: 3
+
+erupt
+erupt + scale_fill_distiller()
+erupt + scale_fill_distiller(palette = "RdPu")
+
+erupt + scale_fill_viridis_c()
+erupt + scale_fill_viridis_c(option = "magma")
+erupt + paletteer::scale_fill_paletteer_c("viridis::magma")
+```
+
+### 原生方法
+
+连续型变量的color映射，默认使用`scale_fill_continuous()`，而该函数默认使用`scale_fill_gradient()`。
+
+```{r}
+#| layout-ncol: 3
+
+erupt
+erupt + scale_fill_continuous()
+erupt + scale_fill_gradient()
+```
+
+类似`scale_fill_gradient()`，ggplot还提供了`scale_fill_gradient2()`，`scale_fill_gradientn()`两个函数。
+
+-   scale_fill_gradient() produces a two-colour gradient
+
+-   scale_fill_gradient2() produces a three-colour gradient with specified midpoint
+
+-   scale_fill_gradientn() produces an n-colour gradient
+
+使用两个颜色值时，没有颜色域的划分；使用三个颜色值时，要提供一个`midpoint`来划分两个颜色域的分隔点；使用多个颜色时，默认将颜色域等分，也可以使用`values`来自行设定。
+
+```{r}
+#| layout-ncol: 3
+
+erupt + scale_fill_gradient(low = "grey", high = "brown")
+erupt +
+  scale_fill_gradient2(
+    low = "grey",
+    mid = "white",
+    high = "brown",
+    midpoint = .02
+  )
+erupt + scale_fill_gradientn(colours = terrain.colors(7))
+```
+
+munsell包及colorspace包，提供了许多颜色的获取方式，详细可见：https://github.com/cwickham/munsell/；https://colorspace.r-forge.r-project.org/ 。
+
+### 缺失值
+
+ggplot 对于数据中的缺失值或超出颜色域范围的值提供了两种处理方式：
+
+-   不显示缺失值。
+-   为缺失值设置特殊颜色。
+
+```{r}
+#| layout-ncol: 3
+
+
+df <- data.frame(x = 1, y = 1:5, z = c(1, 3, 2, NA, 5))
+base <- ggplot(df, aes(x, y)) +
+  geom_tile(aes(fill = z), linewidth = 5) +
+  labs(x = NULL, y = NULL) +
+  scale_x_continuous(labels = NULL)
+
+base
+base + scale_fill_gradient(na.value = NA)
+base + scale_fill_gradient(na.value = "yellow")
+```
+
+### 图例
+
+#### Limits, breaks, and labels
+
+同轴的scale一样，颜色的映射的图例也是一种轴，有`limits`, `breaks`, `labels`的设置。
+
+```{r}
+#| layout-ncol: 2
+
+
+toy <- data.frame(
+  const = 1,
+  up = 1:4,
+  txt = letters[1:4],
+  big = (1:4) * 1000,
+  log = c(2, 5, 10, 2000)
+)
+base <- ggplot(toy, aes(up, up, fill = big)) +
+  geom_tile() +
+  labs(x = NULL, y = NULL)
+
+base
+base + scale_fill_continuous(limits = c(0, 10000))
+base + scale_fill_continuous(breaks = c(1000, 2000, 4000))
+base + scale_fill_continuous(labels = scales::label_dollar())
+```
+
+#### guide_colourbar()
+
+ggplot为连续型变量的颜色映射图例提供了`guide_colourbar()`函数，进行图例设置。不同的映射需要不同的函数进行处理，它们之间的关系后续再讲。
+
+常用的参数如：`reverse`, `barheight`, `direction`。
+
+```{r}
+#| layout-ncol: 2
+
+
+base <- ggplot(mpg, aes(cyl, displ, colour = hwy)) +
+  geom_point(size = 2)
+
+base
+base + guides(colour = guide_colourbar(reverse = TRUE))
+base + guides(colour = guide_colourbar(barheight = unit(2, "cm")))
+base + guides(colour = guide_colourbar(direction = "horizontal"))
+```
+
+
