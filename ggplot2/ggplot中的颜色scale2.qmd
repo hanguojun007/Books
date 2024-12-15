@@ -1,0 +1,334 @@
+---
+title: "ggplot 中的颜色scale(part2)"
+author: "大番薯本薯"
+format: "html"
+fig-width: 4
+fig-height: 4
+fig-align: center
+execute:
+  warning: false
+---
+
+# ggplot 中的颜色scale
+
+ggplot 使用`scale_fill_*()`, `scale_color_*()`, `scale_colour_*()` 进行颜色映射。同轴的scale一样，颜色映射时也分为连续型，离散型，时间，bined处理四种。
+
+## 离散型变量
+
+离散型变量的颜色映射默认使用`scale_*_discrete()`，而该函数默认使用`scale_*_hue()`。
+
+```{r}
+library(tidyverse)
+
+df <- data.frame(x = c("a", "b", "c", "d"), y = c(3, 4, 1, 2))
+bars <- ggplot(df, aes(x, y, fill = x)) +
+  geom_bar(stat = "identity") +
+  labs(x = NULL, y = NULL) +
+  theme(legend.position = "none")
+```
+
+```{r}
+#| layout-ncol: 3
+
+bars
+bars + scale_fill_discrete()
+bars + scale_fill_hue()
+```
+
+### Hue 颜色域
+
+`scale_*_hue`函数采用的是上一节提到的HCL颜色域，它默认能够从`h`中分出最多8个有区分的颜色集。同时也提供`c`,`l`两个参数来生成更多的颜色。
+
+```{r}
+#| layout-ncol: 3
+
+bars
+bars + scale_fill_hue(c = 40)
+bars + scale_fill_hue(h = c(180, 300))
+```
+
+使用`scale_*_hue()`默认生成的颜色在饱和度和亮度上是一样的，转变为黑白时没有区分度。可以使用`scale_*_grey()`做一个替代。
+
+```{r}
+#| layout-ncol: 3
+
+bars + scale_fill_grey()
+bars + scale_fill_grey(start = 0.5, end = 1)
+bars + scale_fill_grey(start = 0, end = 0.5)
+```
+
+### 颜色集
+
+正如在连续型变量的颜色映射中介绍的，ggplot也为离散型变量提供了颜色集函数，使用方法相同。
+
+`ggplot2`书中给出了有关`scale_*_brewer()`函数的配色建议：
+
+1.  先使用`RColorBrewer::display.brewer.all()`函数查看都有哪些颜色集。可以看到，第二组适合离散，第一组适合连续，第三组适合发散。
+
+```{r}
+#| fig-width: 6
+#| fig-height: 8
+RColorBrewer::display.brewer.all()
+```
+
+2.  亮的颜色集适合点形状
+
+```{r}
+#| layout-ncol: 3
+
+# scatter plot
+df <- data.frame(
+  x = 1:3 + runif(30),
+  y = runif(30),
+  z = c("a", "b", "c")
+)
+point <- ggplot(df, aes(x, y)) +
+  geom_point(aes(colour = z)) +
+  theme(legend.position = "none") +
+  labs(x = NULL, y = NULL)
+
+# three palettes
+point + scale_colour_brewer(palette = "Set1")
+point + scale_colour_brewer(palette = "Set2")
+point + scale_colour_brewer(palette = "Pastel1")
+```
+
+3.  暗的颜色集适合区域形状
+
+```{r}
+#| layout-ncol: 3
+
+# bar plot
+df <- data.frame(x = 1:3, y = 3:1, z = c("a", "b", "c"))
+area <- ggplot(df, aes(x, y)) +
+  geom_bar(aes(fill = z), stat = "identity") +
+  theme(legend.position = "none") +
+  labs(x = NULL, y = NULL)
+
+# three palettes
+area + scale_fill_brewer(palette = "Set1")
+area + scale_fill_brewer(palette = "Set2")
+area + scale_fill_brewer(palette = "Pastel1")
+```
+
+### 原生方法
+
+ggplot 使用`scale_*_manual()`来手动进行颜色赋值，将颜色向量提供给`values`参数即可。该函数默认根据赋值变量的顺序来映射颜色，也可以提供一个带`name`属性的向量来指定颜色映射。
+
+```{r}
+#| layout-ncol: 2
+
+bars +
+  scale_fill_manual(
+    values = c("grey", "black", "grey", "grey")
+  )
+
+bars +
+  scale_fill_manual(
+    values = c(
+      "d" = "grey",
+      "c" = "grey",
+      "b" = "black",
+      "a" = "grey"
+    )
+  )
+```
+
+### 图例
+
+#### Limits, breaks, and labels
+
+离散型变量的`limits`, `breaks`, `labels`的设置同离散型轴的设置相同。这三个参数的灵活运用往往能更好的阐述图中要表达的信息。例如下面两幅不同年代排量与燃油经济性趋势图。
+
+不做任何设置时，两幅图的对比性较差
+
+```{r}
+#| layout-ncol: 2
+
+mpg_99 <- mpg %>% filter(year == 1999)
+mpg_08 <- mpg %>% filter(year == 2008)
+
+base_99 <- ggplot(mpg_99, aes(displ, hwy, colour = fl)) +
+  geom_point()
+base_08 <- ggplot(mpg_08, aes(displ, hwy, colour = fl)) +
+  geom_point()
+
+base_99
+base_08
+```
+
+设置`x`,`y`,`color`的limit相同后，便提高了可比性。
+
+```{r}
+#| layout-ncol: 2
+
+base_99 +
+  lims(x = c(1, 7), y = c(10, 45)) +
+  scale_color_discrete(
+    limits = c("c", "d", "e", "p", "r"),
+    breaks = c("d", "p", "r"),
+    labels = c("diesel", "premium", "regular")
+  )
+
+base_08 +
+  lims(x = c(1, 7), y = c(10, 45)) +
+  scale_color_discrete(
+    limits = c("c", "d", "e", "p", "r"),
+    labels = c("compressed", "diesel", "ethanol", "premium", "regular")
+  )
+```
+
+在设置了相同的`limits`保证颜色映射一致后，追加不同的`breaks`,`labels`，提升可读性。
+
+#### guide_legend()
+
+同`guide_colorbar()`函数一样，`guide_legend()`是离散型变量映射的图例控制函数。常见的用法有：
+
+-   `ncol`,`nrow` 控制行列数
+
+```{r}
+#| layout-ncol: 2
+
+base <- ggplot(mpg, aes(drv, fill = factor(cyl))) +
+  geom_bar()
+
+base
+base + guides(fill = guide_legend(ncol = 2))
+```
+
+-   `reverse` 图例排序是否反转
+
+```{r}
+#| layout-ncol: 2
+
+base
+base + guides(fill = guide_legend(reverse = TRUE))
+```
+
+-   `keywidth`,`keyheight` 控制图例块的大小
+
+```{r}
+#| layout-ncol: 2
+
+base
+base + guides(fill = guide_legend(keywidth = unit(2, "cm")))
+```
+
+-   `override.aes` 覆盖映射，使图与图例的颜色不同
+
+```{r}
+#| layout-ncol: 2
+
+base <- ggplot(mpg, aes(displ, hwy, colour = drv)) +
+  geom_point(size = 4, alpha = .2, stroke = 0)
+
+base + guides(colour = guide_legend())
+base + guides(colour = guide_legend(override.aes = list(alpha = 1)))
+```
+
+## Binned 处理后的颜色映射
+
+### 原生方法
+
+ggplot 默认使用函数是`scale_*_binned()`，该函数默认使用`scale_*_steps()`。使用`n.breaks`控制颜色分区的数目。
+
+```{r}
+#| layout-ncol: 3
+
+erupt <- ggplot(faithfuld, aes(waiting, eruptions, fill = density)) +
+  geom_raster() +
+  scale_x_continuous(NULL, expand = c(0, 0)) +
+  scale_y_continuous(NULL, expand = c(0, 0)) +
+  theme(legend.position = "none")
+
+erupt + scale_fill_binned()
+erupt + scale_fill_steps()
+erupt + scale_fill_steps(n.breaks = 8)
+```
+
+`scale_*_steps()` 在使用上同`scale_*_gradient*`
+
+-   scale_fill_steps(): produces a two-colour gradient
+-   scale_fill_steps2(): produces a three-colour gradient with specified midpoint
+-   scale_fill_stepsn(): produces an n-colour gradient
+
+```{r}
+#| layout-ncol: 3
+
+erupt + scale_fill_steps(low = "grey", high = "brown")
+erupt +
+  scale_fill_steps2(
+    low = "grey",
+    mid = "white",
+    high = "brown",
+    midpoint = .02
+  )
+erupt + scale_fill_stepsn(n.breaks = 12, colours = terrain.colors(12))
+```
+
+### 颜色集
+
+ggplot 提供了brewer颜色集的使用函数`scale_fill_fermenter()`
+
+```{r}
+#| layout-ncol: 3
+
+erupt + scale_fill_fermenter(n.breaks = 9)
+erupt + scale_fill_fermenter(n.breaks = 9, palette = "Oranges")
+erupt + scale_fill_fermenter(n.breaks = 9, palette = "PuOr")
+```
+
+### 图例
+
+#### Limits, breaks, and labels
+
+使用方法与连续性变量映射基本相同，区别在于`breaks`上，连续型中代表点，bin中代表区间的两边。
+
+#### guide_coloursteps()
+
+使用方法同连续性变量的`guide_colourbar()`基本相同。
+
+-   `show.limits` 是否显示最边缘的值
+-   `ticks`
+-   `even.steps`
+
+```{r}
+#| layout-ncol: 2
+
+base <- ggplot(mpg, aes(cyl, displ, colour = hwy)) +
+  geom_point(size = 2) +
+  scale_color_binned()
+
+base
+base + guides(colour = guide_coloursteps(show.limits = TRUE))
+```
+
+## 时间型变量
+
+ggplot 提供了`scale_*_date()`, `scale_*_datetime()`为时间型变量进行颜色映射。使用方法同连续型变量，区别是有`date_breaks`,`date_labels` 参数，描述了图例中时间轴的划分与label格式。
+
+```{r}
+#| layout-ncol: 2
+
+base <- ggplot(economics, aes(psavert, uempmed, colour = date)) +
+  geom_point()
+
+base
+base +
+  scale_colour_date(
+    date_breaks = "142 months",
+    date_labels = "%b %Y"
+  )
+```
+
+## 透明度映射
+
+ggplot 中使用`alpha`表示透明度映射，使用`scale_alpha()`/`scale_alpha_continuous()`来进行映射。
+
+```{r}
+ggplot(faithfuld, aes(waiting, eruptions, alpha = density)) +
+  geom_raster(fill = "maroon") +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0))
+```
+
