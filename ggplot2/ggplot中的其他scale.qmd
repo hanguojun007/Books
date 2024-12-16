@@ -1,0 +1,119 @@
+---
+title: "ggplot 中的其他scale"
+author: "大番薯本薯"
+format: "html"
+fig-width: 4
+fig-height: 4
+fig-align: center
+execute:
+  warning: false
+---
+
+# ggplot 中的其他scale
+
+## Size
+
+```{r}
+library(tidyverse)
+base1 <- ggplot(mpg, aes(displ, hwy, size = cyl)) +
+  geom_point()
+```
+
+size 映射通常用于point，text。在ggplot中，有5个关于size的scale函数：
+
+-   `scale_size()`：变量等级对应点的面积。
+-   `scale_size_area()`：同上，但是`range`范围从0开始，对应的值也从0开始映射。
+-   `scale_size_binned()`：连续变量分区后划分的等级对应点的面积。
+-   `scale_size_binned_area()`：，但是`range`范围从0开始，对应的值也从0开始映射。
+-   `scale_radius()`：变量等级对应点的半径。
+
+```{r}
+#| layout-ncol: 2
+
+base1
+base1 + scale_size_area(max_size = 2)
+
+```
+
+上面的函数包含`range`参数，该参数范围控制图中点的最小点和最大点；同时分别对应映射变量的最小等级和最大等级，默认范围是c(1,6)。
+
+```{r}
+#| layout-ncol: 2
+#| fig-subcap:
+#|    - "默认范围"
+#|    - "更改为2"
+
+base1
+base1 + scale_size(range = c(1, 2))
+```
+
+### Radius size scales
+
+`scale_radius`通常用来映射和半径相关的变量，例如下面不同星球的比较。
+
+```{r}
+#| layout-ncol: 2
+
+name <- c("Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune")
+type <- c("Inner", "Inner", "Inner", "Inner", "Outer", "Outer", "Outer", "Outer")
+position <- c(1, 2, 3, 4, 5, 6, 7, 8)
+radius <- c(2440, 6052, 6378, 3390, 71400, 60330, 25559, 24764)
+orbit <- c(5.79e+07, 1.08e+08, 1.50e+08, 2.28e+08, 7.78e+08, 1.43e+09, 2.87e+09, 4.50e+09)
+
+planets <- data.frame(name, type, position, radius, orbit)
+
+base1 <- ggplot(planets, aes(1, name, size = radius)) +
+  geom_point() +
+  scale_x_continuous(breaks = NULL) +
+  labs(x = NULL, y = NULL, size = NULL)
+
+base1 + ggtitle("not to scale")
+base1 +
+  scale_radius(limits = c(0, NA), range = c(0, 10)) +
+  ggtitle("to scale")
+```
+
+### Binned size scales
+
+用于size的通常是离散有序的变量，例如：下面的`cyl`；但也有连续型变量，例如下面的`hwy`。binned函数更适合后者。
+
+```{r}
+#| layout-ncol: 2
+
+base2 <- ggplot(mpg, aes(displ, manufacturer, size = hwy)) +
+  geom_point(alpha = .5) +
+  scale_size_binned()
+
+base1
+base2
+```
+
+类似`guide_legend`，使用`guide_bins()`函数对`scale_size_binned()`生成的图例进行设置，常用参数有：
+
+-   `axis` 是否显示图例中的轴
+-   `direction` 图例方向
+-   `show.limits` 显示轴末端范围
+-   `axis.colour`, `axis.linewidth`和`axis.arrow`控制轴映射
+
+```{r}
+#| layout-ncol: 2
+#| fig-subcap:
+#|    - "不显示轴"
+#|    - "水平方向"
+#|    - "显示末端"
+#|    - "更新轴映射"
+
+base2 + guides(size = guide_bins(axis = FALSE))
+base2 + guides(size = guide_bins(direction = "horizontal", position = "bottom"))
+base2 + guides(size = guide_bins(show.limits = TRUE))
+base2 + guides(
+  size = guide_bins(
+    axis.colour = "red",
+    axis.arrow = arrow(
+      length = unit(.1, "inches"),
+      ends = "first",
+      type = "closed"
+    )
+  )
+)
+```

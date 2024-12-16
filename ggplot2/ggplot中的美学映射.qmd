@@ -1,3 +1,0 @@
-vignette("ggplot2-specs")
-
-美学映射的等级关系，覆盖逻辑。

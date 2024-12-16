@@ -1,0 +1,31 @@
+---
+title: "ggplot 中的美学映射规范"
+author: "大番薯本薯"
+format: "html"
+fig-width: 4
+fig-height: 4
+fig-align: center
+execute:
+  warning: false
+---
+
+## lines
+
+### line type
+
+
+### linewidth
+
+
+## ploygons
+
+## Point
+
+
+
+
+
+
+vignette("ggplot2-specs")
+
+美学映射的等级关系，覆盖逻辑。
