@@ -1,10 +1,11 @@
 ---
 title: "ggplot 中的其他scale"
 author: "大番薯本薯"
-format: "html"
-fig-width: 4
-fig-height: 4
-fig-align: center
+format:
+  html:
+    fig-align: "center" # 图片对齐方式，可选值有 "left", "center", "right"
+    fig-width: 6        # 图片宽度，单位为英寸
+    fig-height: 4
 execute:
   warning: false
 ---
@@ -116,4 +117,126 @@ base2 + guides(
     )
   )
 )
+```
+
+## Shape
+
+shape 映射通常用于类别少于等于6个的离散变量。使用`scale_shape()`函数进行映射控制，参数`solid`控制shape类型，当为`TRUE`时，有三个实心、三个空心图案；`FALSE`时有六个空心图案。
+
+```{r}
+#| layout-ncol: 2
+
+base <- ggplot(mpg, aes(displ, hwy, shape = factor(cyl))) +
+  geom_point()
+
+base
+base + scale_shape(solid = FALSE)
+```
+
+ggplot 提供了25种图案，可以使用`scale_shape_manual`进行选择。
+
+```{r}
+#| layout-ncol: 2
+
+shapes <- data.frame(
+  shape = c(0:19, 22, 21, 24, 23, 20),
+  x = 0:24 %/% 5,
+  y = -(0:24 %% 5)
+)
+ggplot(shapes, aes(x, y)) +
+  geom_point(aes(shape = shape), size = 5, fill = "red") +
+  geom_text(aes(label = shape), hjust = 0, nudge_x = 0.15) +
+  scale_shape_identity() +
+  expand_limits(x = 4.1) +
+  theme_void()
+
+base +
+  scale_shape_manual(
+    values = c("4" = 16, "5" = 17, "6" = 1, "8" = 2)
+  )
+```
+
+## Line width
+
+ggplot2 在v3.4.0版本中引入了控制线宽的映射——`linewidth`，用以在分别设置点线大小时区分`size`。如下图中，中图使用`size`不能设置线宽。
+
+```{r}
+#| layout-ncol: 3
+
+base <- ggplot(airquality, aes(x = factor(Month), y = Temp))
+
+base + geom_pointrange(stat = "summary", fun.data = "median_hilow")
+base + geom_pointrange(
+  stat = "summary",
+  fun.data = "median_hilow",
+  size = 2
+)
+base + geom_pointrange(
+  stat = "summary",
+  fun.data = "median_hilow",
+  linewidth = 2
+)
+```
+
+## Line type
+
+类似于`shape`，ggplot也提供了不同类型的线，使用`linetype`进行映射，使用`scale_linetype()`设置映射，适用离散型变量，但不推荐将`linetype`映射到数目较多的离散型变量。连续型变量想适用shape，需使用`scale_linetype_binned()`。
+
+ggplot中默认使用`scales::linetype_pal()`函数提供13种线类型，参数`na.value`设置当没有足够的线型时该如何展示，默认是空白。
+
+```{r}
+#| layout-ncol: 2
+#| fig-align: center
+
+df <- data.frame(value = letters[1:15])
+base <- ggplot(df, aes(linetype = value)) +
+  geom_segment(
+    mapping = aes(x = 0, xend = 1, y = value, yend = value),
+    show.legend = FALSE
+  ) +
+  theme(panel.grid = element_blank()) +
+  scale_x_continuous(NULL, NULL)
+
+base
+
+base + scale_linetype(na.value = "dotted")
+```
+
+也可以自定义线类型。ggplot使用8位16进制的数来描述线的形状：数字第一位为第一个线段的长度，第二位为第一个空白间隔的长度，以此类推。
+
+```{r}
+#| fig-align: center
+
+lty <- c("11", "18", "1f", "81", "88", "8f", "f1", "f8", "ff")
+linetypes <- data.frame(
+  y = seq_along(lty),
+  lty = lty
+)
+ggplot(linetypes, aes(0, y)) +
+  geom_segment(aes(xend = 5, yend = y, linetype = lty)) +
+  scale_linetype_identity() +
+  geom_text(aes(label = lty), hjust = 0, nudge_y = 0.2) +
+  scale_x_continuous(NULL, breaks = NULL) +
+  scale_y_reverse(NULL, breaks = NULL)
+```
+
+## Identity scales
+
+当映射变量的值和图形的属性一一对应时，可以使用`scale_*_identity()`函数，例如`scale_colour_identity()`。
+
+```{r}
+
+head(luv_colours)
+#>      L         u    v           col
+#> 1 9342 -3.37e-12    0         white
+#> 2 9101 -4.75e+02 -635     aliceblue
+#> 3 8810  1.01e+03 1668  antiquewhite
+#> 4 8935  1.07e+03 1675 antiquewhite1
+#> 5 8452  1.01e+03 1610 antiquewhite2
+#> 6 7498  9.03e+02 1402 antiquewhite3
+
+ggplot(luv_colours, aes(u, v)) +
+  geom_point(aes(colour = col), size = 3) +
+  scale_color_identity() +
+  coord_equal()
 ```
