@@ -1,0 +1,137 @@
+---
+title: "ggplot语法-layer"
+author: "大番薯本薯"
+format: "html"
+fig-width: 4
+fig-height: 4
+fig-align: center
+execute:
+  warning: false
+---
+
+# ggplot语法-layer
+
+我们平常广泛使用的`geom_*`函数，实际上是`layer`函数的简写。`layer`函数包括5个部分：
+
+-   `data`：数据集，如果为`NULL`则使用`ggplot()`函数中的数据集。
+-   `stat`：统计变换，对数据进行统计变换，如`stat_bin()`、`stat_smooth()`等，可以使用`stat_params`进行传参。
+-   `mapping`：映射，`aes()`函数，如果为`NULL`则使用`ggplot()`函数中的映射。
+-   `geom`：几何对象，会使用`aes()`函数中的映射参数，也可以使用`geom_params`进行传参。
+-   `position`：调整重叠的数据点，如`position_jitter()`、`position_dodge()`等。
+
+每个`geom`有默认的`stat`，每个stat`有默认的`geom`，可以省略其中一个。下面是`geom_point()\`的完整写法：
+
+```{r}
+#| layout-ncol: 2
+
+library(tidyverse)
+p <- ggplot(mpg, aes(displ, hwy))
+
+p + geom_point()
+p + layer(
+  mapping = NULL,
+  data = NULL,
+  geom = "point",
+  stat = "identity",
+  position = "identity"
+)
+```
+
+## Data
+
+ggplot使用的data是`tidy-data`(long data)，即每个变量占一列，每个观测占一行。
+
+在一个ggplot对象中，每个layer的data可以不同。
+
+下面是一个手动计算的`loess`回归，其中`grid`是一个新的数据集，`outlier`是一个异常值（等同于`geom_smooth()`）：
+
+```{r}
+#| fig-align: center
+
+mod <- loess(hwy ~ displ, data = mpg)
+grid <- tibble(displ = seq(min(mpg$displ), max(mpg$displ), length = 50))
+grid$hwy <- predict(mod, newdata = grid)
+
+std_resid <- resid(mod) / mod$s
+outlier <- filter(mpg, abs(std_resid) > 2)
+
+ggplot(mpg, aes(displ, hwy)) +
+  geom_point() +
+  geom_line(data = grid, colour = "blue", linewidth = 1.5) +
+  geom_text(data = outlier, aes(label = model))
+
+```
+
+使用下面的数据复现下图，答案见文末。
+
+``` r
+class <- mpg %>%
+  group_by(class) %>%
+  summarise(n = n(), hwy = mean(hwy))
+```
+
+```{r}
+#| echo: false
+#| fig-align: center
+
+class <- mpg %>%
+  group_by(class) %>%
+  summarise(n = n(), hwy = mean(hwy))
+
+ggplot(mpg, aes(class, hwy)) +
+  geom_jitter() +
+  geom_point(data = class, aes(y = hwy), colour = "red", size = 3) +
+  geom_text(data = class, aes(y = 10, label = paste0("n = ", n)), vjust = 0.5)
+```
+
+## Aesthetics mappings
+
+对于ggplot中的映射`ggplot(mpg, aes(displ, hwy))`，layer可以使用`aes()`函数进行追加，覆盖，删除。
+
+| operation | layer aesthetics      | Result                            |
+|-----------|-----------------------|-----------------------------------|
+| Add       | `aes(colour = class)` | `aes(displ, hwy, colour = class)` |
+| Override  | `aes(colour = class)` | `aes(colour = class)`             |
+| Remove    | `aes(y = NULL)`       | `aes(displ)`                      |
+
+在实际使用中，一定要注意每一层layer的最终映射，避免出现不必要的错误。如下面两幅图，映射不同，结果不同。
+
+``` {r}
+#| layout-ncol: 2
+
+ggplot(mpg, aes(displ, hwy, colour = class)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  theme(legend.position = "none")
+
+ggplot(mpg, aes(displ, hwy)) +
+  geom_point(aes(colour = class)) +
+  geom_smooth(method = "lm", se = FALSE) +
+  theme(legend.position = "none")
+```
+
+映射可以赋值为常量，在函数`aes()`外，或向量，在函数`aes()`内。相同的设置，在函数`aes()`内外，结果不同。
+
+```{r}
+#| layout-ncol: 2
+
+ggplot(mpg, aes(cty, hwy)) +
+  geom_point(colour = "darkblue")
+
+ggplot(mpg, aes(cty, hwy)) +
+  geom_point(aes(colour = "darkblue"))
+```
+
+上右图在实际中很常见，变量值即是想要的颜色值，使用函数`I()`或`scale_color_identity()`，即可实现。
+
+```{r}
+#| layout-ncol: 2
+
+ggplot(mpg, aes(cty, hwy)) +
+  geom_point(aes(colour = I("darkblue")))
+
+ggplot(mpg, aes(cty, hwy)) +
+  geom_point(aes(colour = "darkblue")) +
+  scale_colour_identity()
+```
+

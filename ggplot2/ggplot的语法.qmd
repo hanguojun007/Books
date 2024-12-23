@@ -1,5 +1,5 @@
 ---
-title: "ggplot 中的其他scale"
+title: "ggplot 的语法"
 author: "大番薯本薯"
 format: "html"
 fig-width: 4
@@ -9,12 +9,5 @@ execute:
   warning: false
 ---
 
-data
-
-stat & layer & aes
-
-scale & coord
-
-annotation  & adjustment
 
 
