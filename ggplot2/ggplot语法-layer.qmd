@@ -19,7 +19,7 @@ execute:
 -   `geom`：几何对象，会使用`aes()`函数中的映射参数，也可以使用`geom_params`进行传参。
 -   `position`：调整重叠的数据点，如`position_jitter()`、`position_dodge()`等。
 
-每个`geom`有默认的`stat`，每个stat`有默认的`geom`，可以省略其中一个。下面是`geom_point()\`的完整写法：
+下面是`geom_point()`的完整写法：
 
 ```{r}
 #| layout-ncol: 2
@@ -96,7 +96,7 @@ ggplot(mpg, aes(class, hwy)) +
 
 在实际使用中，一定要注意每一层layer的最终映射，避免出现不必要的错误。如下面两幅图，映射不同，结果不同。
 
-``` {r}
+```{r}
 #| layout-ncol: 2
 
 ggplot(mpg, aes(displ, hwy, colour = class)) +
@@ -135,3 +135,81 @@ ggplot(mpg, aes(cty, hwy)) +
   scale_colour_identity()
 ```
 
+## Geoms & Stats
+
+ggplot中的`geom`与`stat`有着千丝万缕的联系，有时候往往分不清差别。每个`geom`都有默认的`stat`，`stat`则不一定，因为某些`stat`结果可以用在多个`geom`。
+
+下图是ggplot中函数速查表。更多可参考文档：https://rstudio.github.io/cheatsheets/html/data-visualization.html
+
+![](image/data-visualization_zh.png)
+
+`stat`的功能是根据原始数据生成一个新的数据，这个新的数据自然而然有新的变量可供映射。可以使用`after_stat()`函数获取这个变量进行映射。如下图中，默认使用`count`进行映射，可以选择`density`。
+
+使用`help()`命令在函数说明文档中可以在`Computed variables`处见到可用的变量。
+
+![](image/729uJcM9HH.png)
+
+```{r}
+#| layout-ncol: 2
+
+ggplot(diamonds, aes(price)) +
+  geom_histogram(binwidth = 500)
+
+ggplot(diamonds, aes(price)) +
+  geom_histogram(aes(y = after_stat(density)), binwidth = 500)
+```
+
+## Position adjustments
+
+### 三种针对bar图的位置调整
+
+-   position_stack(): 堆砌。
+-   position_fill(): 堆砌，然后归一化到1。
+-   position_dodge(): 并排。
+
+```{r}
+#| layout-ncol: 3
+
+dplot <- ggplot(diamonds, aes(color, fill = cut)) +
+  xlab(NULL) +
+  ylab(NULL) +
+  theme(legend.position = "none")
+dplot + geom_bar()
+dplot + geom_bar(position = "fill")
+dplot + geom_bar(position = "dodge")
+```
+
+### 三种针对点图的位置调整
+
+-   position_nudge(): x,y 移动固定距离
+-   position_jitter(): x,y 移动随机距离
+-   position_jitterdodge(): dodge points within groups, then add a little random noise.
+
+```{r}
+#| layout-ncol: 3
+
+ggplot(mpg, aes(displ, hwy)) +
+  geom_point(position = position_nudge(x = 0.1, y = 1))
+
+ggplot(mpg, aes(displ, hwy)) +
+  geom_point(position = position_jitter())
+
+set.seed(596)
+dsub <- diamonds[sample(nrow(diamonds), 1000), ]
+ggplot(diamonds, aes(x = cut, y = carat, fill = clarity)) +
+  geom_point(pch = 21, position = position_jitterdodge())
+
+```
+
+--------------------------------------------------------------------------------
+
+``` r
+class <- mpg %>%
+  group_by(class) %>%
+  summarise(n = n(), hwy = mean(hwy))
+
+ggplot(mpg, aes(class, hwy)) +
+  geom_jitter() +
+  geom_point(data = class, aes(y = hwy), colour = "red", size = 3) +
+  geom_text(data = class, aes(y = 10, label = paste0("n = ", n)), vjust = 0.5)
+```
