@@ -106,6 +106,7 @@ oob参数不同，显示结果也不同。如下图，默认范围的`limits`会
 ```{r}
 #| layout-ncol: 3
 
+library(tidyverse)
 df <- data.frame(x = 1:6, y = 8:13)
 base <- ggplot(df, aes(x, y)) +
   geom_col(aes(fill = x)) + # bar chart
