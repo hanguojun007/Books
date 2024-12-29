@@ -1,0 +1,22 @@
+---
+title: "ggplot语法-coord"
+author: "大番薯本薯"
+format: "html"
+fig-width: 4
+fig-height: 4
+fig-align: center
+execute:
+  warning: false
+---
+
+# ggplot语法-coord
+
+ggplot 有两类坐标轴：线性与非线性
+
+线性坐标轴：
+
+-   coord_cartesian()
+
+
+
+
