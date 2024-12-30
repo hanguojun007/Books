@@ -16,7 +16,144 @@ ggplot 有两类坐标轴：线性与非线性
 线性坐标轴：
 
 -   coord_cartesian()
+-   coord_flip()
+-   coord_fixed()
+
+非线性坐标轴：
+-   coord_map()/coord_quickmap()/coord_sf()
+-   coord_polar()
+-   coord_trans()
+
+线性不改变geom形状，非线性会改变geom形状。
+
+## 线性坐标轴
+
+### 坐标系放大
+
+ggplot中轴`scale`的参数`limits`会对绘制数据进行过滤，但是轴`coord`的参数`xlim`只是对轴进行放大显示，并不会影响数据。
+
+```{r}
+#| layout-ncol: 3
+
+library(tidyverse)
+base <- ggplot(mpg, aes(displ, hwy)) +
+  geom_point() +
+  geom_smooth()
+
+base
+base + scale_x_continuous(limits = c(4, 6))
+base + coord_cartesian(xlim = c(4, 6))
+```
+
+```{r}
+#| layout-ncol: 3
+
+d <- ggplot(diamonds, aes(carat, price)) +
+  stat_bin_2d(bins = 25, colour = "white")
+d
+d + scale_x_continuous(limits = c(0, 1))
+d + coord_cartesian(xlim = c(0, 1))
+```
+
+### 坐标系翻转
+
+有两种方式实现坐标轴反转：
+
+-   修改映射，将`x`,`y`映射互调即可。
+-   使用`coord_flip()`将坐标轴反转。
+
+对于`x`,`y`仅具有位置关系，不具有自变量因变量关系时，两种方法结果相同，否则相反。
+
+```{r}
+#| layout-ncol: 3
+
+ggplot(mpg, aes(displ, cty)) +
+  geom_point() +
+  geom_smooth()
+ggplot(mpg, aes(cty, displ)) +
+  geom_point() +
+  geom_smooth()
+ggplot(mpg, aes(displ, cty)) +
+  geom_point() +
+  geom_smooth() +
+  coord_flip()
+```
+
+### 坐标系固定
+
+ggplot在绘制图时，默认`x`,`y`轴的比例是不固定的；`coord_fixed()`提供了比例设置参数`ratio`。
+
+## 非线性坐标轴
 
 
 
+### transform
 
+```{r}
+# Linear model on original scale is poor fit
+
+d <- subset(diamonds, carat > 0.5)
+
+base <- ggplot(d, aes(carat, price)) +
+  stat_bin2d() +
+  geom_smooth(method = "lm") +
+  xlab(NULL) +
+  ylab(NULL) +
+  theme(legend.position = "none")
+base
+
+# Better fit on log scale, but harder to interpret
+base +
+  scale_x_log10() +
+  scale_y_log10()
+
+pow10 <- scales::exp_trans(10)
+base +
+  coord_trans(x = "log10", y = "log10")
+
+
+```
+
+
+### polar
+
+在ggplot中，使用`coord_polar()`最常见的方式是绘制饼图，玫瑰图，雷达图等，将线，柱状图进行极坐标化。
+
+```{r}
+#| layout-ncol: 3
+
+base <- ggplot(mtcars, aes(factor(1), fill = factor(cyl))) +
+  geom_bar(width = 1) +
+  theme(legend.position = "none") +
+  scale_x_discrete(NULL, expand = c(0, 0)) +
+  scale_y_continuous(NULL, expand = c(0, 0))
+
+# Stacked barchart
+base
+# Pie chart
+base + coord_polar(theta = "y")
+# The bullseye chart
+base + coord_polar()
+```
+
+```{r}
+#| layout-ncol: 3
+
+dat <- data.frame(
+  x = LETTERS[1:7],
+  y = c(2, 3, 1, 2, 4, 5, 3)
+)
+base <- ggplot(dat, aes(x, y, group = NA)) +
+  geom_line()
+# Stacked barchart
+base
+# Pie chart
+base + coord_polar(theta = "y")
+# The bullseye chart
+base
+```
+
+
+### map
+
+有关地图的内容见：[coord_map](https://ggplot2-book.org/coord#map-projections-with-coord_map)
