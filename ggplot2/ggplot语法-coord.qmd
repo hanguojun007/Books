@@ -85,12 +85,60 @@ ggplot在绘制图时，默认`x`,`y`轴的比例是不固定的；`coord_fixed(
 
 ## 非线性坐标轴
 
+ggplot 分三步进行非线性转换：
 
+1.  确定线的两端
+
+```{r}
+df <- data.frame(r = c(0, 1), theta = c(0, 3 / 2 * pi))
+ggplot(df, aes(r, theta)) +
+  geom_line() +
+  geom_point(size = 2, colour = "red")
+```
+
+2.  将线分隔成多个线段
+
+```{r}
+interp <- function(rng, n) {
+  seq(rng[1], rng[2], length = n)
+}
+munched <- data.frame(
+  r = interp(df$r, 15),
+  theta = interp(df$theta, 15)
+)
+
+ggplot(munched, aes(r, theta)) +
+  geom_line() +
+  geom_point(size = 2, colour = "red")
+```
+
+3.  对每个线段进行转换
+
+```{r}
+transformed <- transform(munched,
+  x = r * sin(theta),
+  y = r * cos(theta)
+)
+
+ggplot(transformed, aes(x, y)) +
+  geom_path() +
+  geom_point(size = 2, colour = "red") +
+  coord_fixed()
+```
 
 ### transform
 
+`coord_trans()`函数通过参数`x`,`y`进行转换，可以使用`scales`包提供的`exp_trans`、`log_trans`等函数。
+
+类似`limits`，`scale`中的转换会对数据产生影响，统计发生在转换之后，不会改变图的`geom`如图2；`coord`中的转换不会对数据产生影响，但是坐标轴上的刻度的等间距会发生变化，改变图的`geom`，如图3；在实际使用中，往往是如图4的用法：线对数据进行转换，然后再对轴进行反转换。
+
 ```{r}
-# Linear model on original scale is poor fit
+#| layout-ncol: 2
+#| fig-subcap:
+#|    - "图1"
+#|    - "图2"
+#|    - "图3"
+#|    - "图4"
 
 d <- subset(diamonds, carat > 0.5)
 
@@ -107,10 +155,14 @@ base +
   scale_x_log10() +
   scale_y_log10()
 
-pow10 <- scales::exp_trans(10)
 base +
   coord_trans(x = "log10", y = "log10")
 
+pow10 <- scales::exp_trans(10)
+base +
+  scale_x_log10() +
+  scale_y_log10() +
+  coord_trans(x = pow10, y = pow10)
 
 ```
 
@@ -136,19 +188,25 @@ base + coord_polar(theta = "y")
 base + coord_polar()
 ```
 
+
+
 ```{r}
+#| echo: false
+#| eval: false
 #| layout-ncol: 3
 
+# radar test
 dat <- data.frame(
-  x = LETTERS[1:7],
-  y = c(2, 3, 1, 2, 4, 5, 3)
+  x = c("G", LETTERS[1:7]),
+  y = c(3, 2, 3, 1, 2, 4, 5, 3)
 )
 base <- ggplot(dat, aes(x, y, group = NA)) +
-  geom_line()
+  geom_path() +
+  scale_y_continuous(limits = c(0, 6))
 # Stacked barchart
 base
 # Pie chart
-base + coord_polar(theta = "y")
+base + coord_polar()
 # The bullseye chart
 base
 ```
