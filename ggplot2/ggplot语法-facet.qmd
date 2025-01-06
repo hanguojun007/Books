@@ -1,0 +1,168 @@
+---
+title: "ggplot语法-facet"
+author: "大番薯本薯"
+format: "html"
+fig-width: 4
+fig-height: 4
+fig-align: center
+execute:
+  warning: false
+---
+
+# ggplot语法-facet
+
+ggplot 中有三个关于分面的函数：
+
+-   `facet_null()`：无分面。
+-   `facet_warp()`：将一维的带状面板包装为一个二维。
+-   `facet_grid()`：提供变量定义二维网格，用于分面。
+
+![](image/facet.jpeg)
+
+```{r}
+library(tidyverse)
+mpg2 <- subset(mpg, cyl != 5 & drv %in% c("4", "f") & class != "2seater")
+```
+
+## facet_wrap()
+
+`facet_warp()`函数有四个控制如何排列面板的参数。
+
+-   `nrow`：每行的面板数。
+-   `ncol`：每列的面板数。
+-   `dir`：面板排列的方向，vertical 或者 horizontal。
+-   `as.table`：当为 `TRUE` 时，面板最大值在右下，为 `FALSE` 时，面板最大值在左上。
+
+```{r}
+#| layout-ncol: 2
+
+
+base <- ggplot(mpg2, aes(displ, hwy)) +
+  geom_blank() +
+  xlab(NULL) +
+  ylab(NULL)
+
+base + facet_wrap(~class, ncol = 3)
+base + facet_wrap(~class, ncol = 3, as.table = FALSE)
+base + facet_wrap(~class, nrow = 3)
+base + facet_wrap(~class, nrow = 3, dir = "v")
+```
+
+## facet_grid()
+
+`facet_grid()`函数通过`. ~ a`来控制列，`b ~ .`来控制行。
+
+```{r}
+#| layout-ncol: 2
+
+base + facet_grid(. ~ cyl)
+base + facet_grid(drv ~ .)
+```
+
+## scale 参数
+
+`facet_grid()`，`facet_wrap()`两函数都有关于控制x轴y轴范围的`scales`参数。
+
+-   `scales = "fixed"`：轴固定
+-   `scales = "free_x"`：x轴自由
+-   `scales = "free_y"`：y轴自由
+-   `scales = "free"`：x轴和y轴自由
+
+```{r}
+#| layout-ncol: 2
+
+p <- ggplot(mpg2, aes(cty, hwy)) +
+  geom_abline() +
+  geom_jitter(width = 0.1, height = 0.1)
+
+p + facet_wrap(~cyl)
+p + facet_wrap(~cyl, scales = "free")
+```
+
+`facet_grid()`函数同时有另外一个控制绘图空间大小的参数`space`，同样有四个选项：`fixed`，`free_x`，`free_y`，`free`。该参数会将图的空间大小按照轴的范围来调整，在离散变量中更常见。
+
+```{r}
+#| fig-height: 6
+
+mpg2$model <- reorder(mpg2$model, mpg2$cty)
+mpg2$manufacturer <- reorder(mpg2$manufacturer, -mpg2$cty)
+
+ggplot(mpg2, aes(cty, model)) +
+  geom_point() +
+  facet_grid(manufacturer ~ ., scales = "free", space = "free") +
+  theme(strip.text.y = element_text(angle = 0))
+```
+
+## Missing faceting variables
+
+在分面绘制中，当某个分面变量在其他数据集中缺失，ggplot会自动补齐。
+
+如下图中，红色点的数据集`df2`中没有`gender`变量，但ggplot依然视其具有分面变量，并在每个分面中绘制该点。
+
+```{r}
+#| layout-ncol: 2
+
+df1 <- data.frame(x = 1:3, y = 1:3, gender = c("f", "f", "m"))
+df2 <- data.frame(x = 2, y = 2)
+
+ggplot(df1, aes(x, y)) +
+  geom_point(data = df2, colour = "red", size = 2) +
+  geom_point() +
+  facet_wrap(~gender)
+```
+
+## Grouping vs. faceting
+
+我们在平常绘制图时，经常使用颜色或形状在一张图中来区分组，分面绘制在某种意义上是一种分组。在实际使用过程中，要根据需求灵活地使用分面绘制，而不是使用颜色或形状。
+
+```{r}
+#| layout-ncol: 1
+
+df <- data.frame(
+  x = rnorm(120, c(0, 2, 4)),
+  y = rnorm(120, c(1, 2, 1)),
+  z = letters[1:3]
+)
+
+ggplot(df, aes(x, y)) +
+  geom_point(aes(colour = z))
+
+```
+
+```{r}
+#| fig-width: 12
+
+df2 <- dplyr::select(df, -z)
+
+ggplot(df, aes(x, y)) +
+  geom_point(data = df2, colour = "grey70") +
+  geom_point(aes(colour = z)) +
+  facet_wrap(~z)
+```
+
+## Continuous variables
+
+分面变量通常是离散变量，ggplot同时提供了三个方便将连续变量`bin`化的函数：
+
+-   `cut_interval(x, n)`：将连续变量分成区间相等的 n 份。
+-   `cut_width(x, n)`：将连续变量分成区间等宽，且宽度为 n 。
+-   `cut_number(x, n)`：将连续变量分成 n 个具有大致相等数量点的区间。
+
+
+```{r}
+#| layout-ncol: 3
+
+# Bins of width 1
+mpg2$disp_w <- cut_width(mpg2$displ, 1)
+# Six bins of equal length
+mpg2$disp_i <- cut_interval(mpg2$displ, 6)
+# Six bins containing equal numbers of points
+mpg2$disp_n <- cut_number(mpg2$displ, 6)
+
+plot <- ggplot(mpg2, aes(cty, hwy)) +
+  geom_point() +
+  labs(x = NULL, y = NULL)
+plot + facet_wrap(~disp_w, nrow = 1)
+plot + facet_wrap(~disp_i, nrow = 1)
+plot + facet_wrap(~disp_n, nrow = 1)
+```
