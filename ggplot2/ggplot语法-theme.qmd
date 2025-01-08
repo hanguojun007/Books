@@ -80,7 +80,7 @@ last_plot() + theme(panel.grid.major = element_blank())
 -   `hjust`：水平方向调整，[0,1]
 -   `vjust`：垂直方向调整，[0,1]
 -   `angle`：角度，[0,360]
--   `lineheight`：行高，在分面中设置标签栏的高度
+-   `lineheight`：多行字符时，设置行高
 -   `margin`：字体上，右，下，左的边缘距离。
 -   `debug`：凸显字体
 
@@ -88,33 +88,18 @@ last_plot() + theme(panel.grid.major = element_blank())
 ```{r}
 set.seed(123)
 df <- data.frame(
-  x = c("aaaa", "bbbb", "cccc", "dddd"),
+  x = c("aaa", "bbb", "ccc", "ddd"),
   y = rnorm(120, c(1, 2, 1)),
-  z = LETTERS[1:3]
+  z = c("longlonglong\nlonglonglong", "short", "median")
 )
 
 ggplot(df, aes(x, y)) +
   geom_point(aes(colour = z)) +
   facet_wrap(~z) +
   theme(
-    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 0),
-    strip.text = element_text(color = "orange", lineheight = 0.5)
+    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 12),
+    strip.text = element_text(color = "orange", lineheight = 2)
   )
-library("tidyverse")
-df0 <- mtcars %>%
-  rownames_to_column("car") %>%
-  mutate(car = str_wrap(car, width = 10))
-
-ggplot(data = df0, aes(x = car, y = mpg)) +
-  geom_bar(stat = "identity") +
-  coord_flip()
-
-# has no effect
-par(lheight = 0.5)
-ggplot(data = df0, aes(x = car, y = mpg)) +
-  geom_bar(stat = "identity") +
-  coord_flip()
-
 ```
 
 ### element_line()
@@ -147,4 +132,132 @@ base + theme(panel.grid.major = element_line(colour = "black", linewidth = 2, li
 base + theme(plot.background = element_rect(fill = "grey80", colour = NA))
 base + theme(plot.background = element_rect(colour = "red", linewidth = 2))
 base + theme(panel.background = element_rect(fill = "linen"))
+```
+
+## Theme elements
+
+theme中的元素包括5大类：plot，panel，axis，legend，strip。plot 控制整个图形，panel 控制画板，axis 控制坐标轴，legend 控制图例，strip 控制分面。
+
+### plot 相关元素
+
+-   `plot.background`：图背景色，始终在最底层图层，默认为白色，设置为`NA`则透明。
+-   `plot.title`,`plot.subtitle`,`plot.caption`,`plot.tag`：标题、副标题、注释、标签。
+-   `plot.margin`：图边缘
+
+### panel 相关元素
+
+`panel.background` 与 `panel.border` 中间隔着数据绘图layer层，默认`panel.border = element_rect(fill = NA)`。
+
+-   `panel.background`：画板背景色
+-   `panel.border`：画板边框
+-   `panel.grid`：画板网格
+-   `panel.grid.major`：主网格线
+-   `panel.grid.minor`：次网格线
+-   `panel.spacing`：画板间距，当使用分面时考虑。
+-   `panel.ontop`：画板中除`boder`外的元素是否在数据layer层上。
+-   `aspect.ratio`：画板宽高比
+
+```{r}
+#| layout-ncol: 3
+
+df <- data.frame(x = 1:4, y = 1:4, z = rep(c("a", "b"), each = 2))
+base <- ggplot(df, aes(x, y)) +
+  geom_point()
+
+base + theme(panel.background = element_rect(fill = "lightblue"))
+
+base + theme(aspect.ratio = 9 / 16)
+
+base + theme(panel.grid.major.x = element_line(color = "gray60", linewidth = 0.8))
+```
+
+### axis 相关元素
+
+-   `axis.title`：轴标题
+-   `axis.text`：轴刻度文本
+-   `axis.ticks`：轴主刻度线
+-   `axis.minor.ticks`：轴次刻度线
+-   `axis.ticks.length`：轴主刻度线长度，使用`unit`控制单位和方向。
+-   `axis.minor.ticks.length`：轴次刻度线长度
+-   `axis.line`：轴线
+
+```{r}
+df <- data.frame(x = 1:3, y = 1:3)
+ggplot(df, aes(x, y)) +
+  geom_point() +
+  theme(
+    axis.title.x = element_blank(),
+    axis.line = element_line(colour = "grey50", linewidth = 1),
+    axis.text = element_text(color = "blue", size = 12),
+    axis.text.x = element_text(angle = -90, vjust = 0.5)
+  )
+```
+
+### legend 相关元素
+
+图例的控制也可以使用`guide_legend()`或`guide_colorbar()`进行设置。
+
+#### 整个图例box
+
+无论有几种图例，存在一个图例框——`box`来将其视作一个整体。使用`box`相关元素控制多个图例的控制方式。
+
+-   `legend.box`：多个图例在box中如何排列，水平方向还是垂直方向
+-   `legend.box.just`：多个图例在box中的对齐方式：`left`,`right`,`top`,`bottom`。
+-   `legend.box.background`：box的背景。
+-   `legend.box.margin`：box的边缘。
+-   `legend.box.spacing`：box距绘图区域的距离。
+-   `legend.location`：box的位置与`plot`对齐还是和`panel`对齐。
+-   `legend.position`：box在图中的位置：`left`,`right`,`top`,`bottom`,`inside`。
+-   `legend.position.inside`：当为`inside`时，给长度为2，范围为[0,1]的数值向量。
+
+
+#### 单个图例
+
+-   `legend.direction`：图例方向
+-   `legend.background`：每个图例的背景色
+-   `legend.margin`：每个图例的边缘
+-   `legend.spacing`：每个图例的间距
+
+-   `legend.key`：
+-   `legend.frame`：
+-   `legend.ticks`：
+-   `legend.ticks.length`：
+-   `legend.axis.line`：
+
+-   `legend.text`：
+-   `legend.text.position`：
+-   `legend.title`：
+-   `legend.title.position`：
+
+
+-   `legend.byrow`：
+-   `legend.justification`：
+
+
+
+```{r}
+df <- data.frame(X = 1:4, Y = 1:4, Z = rep(c("a", "b"), each = 2))
+ggplot(df, aes(X, Y, shape = Z, colour = Y, size = X)) +
+  geom_point() +
+  theme(
+    legend.box = "vertical",
+    legend.box.background = element_rect(
+      fill = "red",
+      colour = "black",
+      linewidth = 1
+    ),
+    legend.box.just = "right",
+    legend.location = "plot",
+    legend.justification.left = c(0.5, 0.8),
+    legend.byrow = FALSE,
+    legend.direction = "horizontal",
+    legend.position = "inside",
+    legend.position.inside = c(0.8, 0.8),
+    legend.key = element_rect(color = "red"),
+    legend.frame = element_rect(color = "green"),
+    legend.axis.line = element_line(linewidth = 3, color = "black"),
+    legend.text = element_text(face = "italic"),
+    legend.title = element_text(face = "bold")
+  )
+
 ```
