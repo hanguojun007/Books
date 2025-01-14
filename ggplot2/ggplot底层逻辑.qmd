@@ -1,5 +1,5 @@
 ---
-title: "使用ggplot编程"
+title: "ggplot底层逻辑"
 author: "大番薯本薯"
 format: "html"
 fig-width: 4
@@ -9,22 +9,28 @@ execute:
   warning: false
 ---
 
-# 使用ggplot编程
+# ggplot 底层逻辑
 
 ggplot中的每一个组件都是一个对象，都可以赋值给一个变量，然后进行重复调用。
 
 ```{r}
-
-theme_grey()
-
 # test
 library(tidyverse)
-p <- ggplot(mpg, aes(displ, hwy)) +
-  geom_point() +
-  theme_grey()
+p <- ggplot(mpg, aes(displ, hwy, color = drv)) +
+  geom_point(position = "jitter") +
+  geom_smooth(method = "lm", formula = y ~ x) +
+  facet_wrap(vars(year)) +
+  ggtitle("A plot for expository purposes")
 
-a <- get_element_tree()
+ggprint <- function(x) {
+  data <- ggplot_build(x)
+  gtable <- ggplot_gtable(data)
+  grid::grid.newpage()
+  grid::grid.draw(gtable)
+  return(invisible(x))
+}
 
+ggprint(p)
 ```
 
 

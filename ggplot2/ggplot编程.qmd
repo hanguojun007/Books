@@ -1,0 +1,39 @@
+---
+title: "使用ggplot编程"
+author: "大番薯本薯"
+format: "html"
+fig-width: 4
+fig-height: 4
+fig-align: center
+execute:
+  warning: false
+---
+
+# 使用ggplot编程
+
+ggplot中的每一个组件都是一个对象，都可以赋值给一个变量，然后进行重复调用。
+
+```{r}
+# test
+library(tidyverse)
+p <- ggplot(mpg, aes(displ, hwy, color = drv)) +
+  geom_point(position = "jitter") +
+  geom_smooth(method = "lm", formula = y ~ x) +
+  facet_wrap(vars(year)) +
+  ggtitle("A plot for expository purposes")
+
+ggprint <- function(x) {
+  data <- ggplot_build(x)
+  gtable <- ggplot_gtable(data)
+  grid::grid.newpage()
+  grid::grid.draw(gtable)
+  return(invisible(x))
+}
+
+ggprint(p)
+```
+
+
+使用`%+replace%`进行主题替换
+使用` theme(complete = TRUE)`设置主题为完整主题，如果再添加element设置，会进行覆盖；否则会进行合并。
+
