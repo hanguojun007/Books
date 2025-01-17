@@ -49,8 +49,11 @@ ggplot_build()函数会将ggplot对象转换为一个包含所有图层数据的
 -   获取layer数据
 
 -   根据layer数据生成坐标轴信息。
+
 -   根据facet数据生成分面信息。
+
 -   生成group信息
+
 -   根据aes生成映射信息。
 
 数据trans，来自于scale系列函数中的参数transform。
@@ -60,8 +63,6 @@ ggplot_build()函数会将ggplot对象转换为一个包含所有图层数据的
 调整坐标信息，如position
 
 geom 映射非坐标美学映射
-
-
 
 ```{r}
 x <- c(1, 2, 3)
@@ -77,4 +78,3 @@ p + scale_y_continuous(trans = "log2") + coord_trans(y = scales::exp_trans(2))
 p + coord_trans(y = scales::exp_trans(2))
 
 ```
-
