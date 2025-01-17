@@ -78,3 +78,8 @@ p + scale_y_continuous(trans = "log2") + coord_trans(y = scales::exp_trans(2))
 p + coord_trans(y = scales::exp_trans(2))
 
 ```
+
+
+## ggproto 面向对象系统
+
+ggplot 使用了ggproto 面向对象系统。
