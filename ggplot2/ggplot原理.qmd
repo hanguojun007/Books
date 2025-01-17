@@ -1,0 +1,80 @@
+---
+title: "ggplot原理.qmd"
+author: "大番薯本薯"
+date: "2025-01-16"
+date-modified: "2025-01-16"
+draft: true
+categories: [ggplot2]
+fig-width: 4
+fig-height: 4
+fig-align: center
+execute:
+  warning: false
+---
+
+```{r}
+library(tidyverse)
+
+ggprint <- function(x) {
+  data <- ggplot_build(x)
+  gtable <- ggplot_gtable(data)
+  grid::grid.newpage()
+  grid::grid.draw(gtable)
+  return(invisible(x))
+}
+
+p <- ggplot(mpg, aes(displ, hwy, color = drv)) +
+  geom_point(position = "jitter") +
+  geom_smooth(method = "lm", formula = y ~ x) +
+  facet_wrap(vars(year)) +
+  ggtitle("A plot for expository purposes")
+
+```
+
+```{r}
+dat <- ggplot_build(p)
+gtable <- ggplot_gtable(dat)
+
+
+info <- dat$data[[1]] # 有几个layer就有几个data
+head(info)
+```
+
+### data preparation
+
+ggplot_build()函数会将ggplot对象转换为一个包含所有图层数据的列表。
+
+转换的步骤：
+
+-   获取layer数据
+
+-   根据layer数据生成坐标轴信息。
+-   根据facet数据生成分面信息。
+-   生成group信息
+-   根据aes生成映射信息。
+
+数据trans，来自于scale系列函数中的参数transform。
+
+根据分面分组分别 stat
+
+调整坐标信息，如position
+
+geom 映射非坐标美学映射
+
+
+
+```{r}
+x <- c(1, 2, 3)
+y <- c(2, 4, 8)
+dat <- data.frame(x = x, y = y)
+
+p <- ggplot(dat, aes(x = x, y = y)) +
+  geom_line()
+p
+p + scale_y_continuous(trans = "log2")
+p + coord_trans(y = "log2")
+p + scale_y_continuous(trans = "log2") + coord_trans(y = scales::exp_trans(2))
+p + coord_trans(y = scales::exp_trans(2))
+
+```
+
