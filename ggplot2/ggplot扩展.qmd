@@ -1,5 +1,5 @@
 ---
-title: "ggplot底层逻辑"
+title: "ggplot扩展"
 author: "大番薯本薯"
 format: "html"
 fig-width: 4
@@ -9,7 +9,7 @@ execute:
   warning: false
 ---
 
-# ggplot 底层逻辑
+# ggplot 扩展
 
 ggplot中的每一个组件都是一个对象，都可以赋值给一个变量，然后进行重复调用。
 
@@ -34,6 +34,39 @@ ggprint(p)
 ```
 
 
+## new theme
+
 使用`%+replace%`进行主题替换
 使用` theme(complete = TRUE)`设置主题为完整主题，如果再添加element设置，会进行覆盖；否则会进行合并。
+使用`register_theme_elements()`注册主题元素
 
+``` r
+register_theme_elements(
+  ggxyz.panel.annotation = element_text(
+    color = "blue",
+    hjust = 0.95,
+    vjust = 0.05
+  ),
+  element_tree = list(
+    ggxyz.panel.annotation = el_def(
+      class = "element_text",
+      inherit = "text"
+    )
+  )
+)
+```
+
+## new stat
+
+`setup_params()`
+`setup_data()`
+
+`compute_layer`
+`compute_panel`
+`compute_group`
+
+
+
+## new geom
+
+可以用来创建新的aes，临时使用ggnewscale包即可。
