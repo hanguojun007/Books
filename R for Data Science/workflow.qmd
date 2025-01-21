@@ -23,6 +23,12 @@ Use comments to explain the why of your code, not the how or the what.
 
 变量名使用 `snake_case`，例如：`my_variable`。蛇形命名法更能直观的看出变量的含义。
 
-## code style
+使用更长含义明确的name。
+
+对某类型变量做区别时，使用前缀而不是后缀，方便自动补全。
+
+## pipe
+
+使用管道时，不要超过10次。过多的管道操作会导致代码难懂，应该进行分割，使用意义更加明确的小模块。
 
 
