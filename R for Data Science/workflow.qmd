@@ -1,8 +1,9 @@
 ---
-title: "workflow_basic.qmd"
+title: "workflow.qmd"
 author: "大番薯本薯"
 date: "2025-01-20"
 date-modified: "2025-01-20"
+format: "html"
 fig-width: 4
 fig-height: 4
 fig-align: center
@@ -10,7 +11,7 @@ execute:
   warning: false
 ---
 
-# WorkFlow: basics
+# WorkFlow
 
 ## Comments
 
@@ -22,5 +23,6 @@ Use comments to explain the why of your code, not the how or the what.
 
 变量名使用 `snake_case`，例如：`my_variable`。蛇形命名法更能直观的看出变量的含义。
 
+## code style
 
 
