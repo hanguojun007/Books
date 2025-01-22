@@ -88,9 +88,9 @@ tidy data 是数据整理的标准，它使数据更容易在R中操作、建模
 
 -   `names_repair`：转换后的列名不符合要求时的处理方式。更多处理方式见：`?vctrs::vec_as_names`。
 
-#### `names_to`参数为字符串向量时的两种情况
+### `names_to`参数为字符串向量时的两种情况
 
-##### 待转换列的列名包含多个信息
+#### 待转换列的列名包含多个信息
 
 查看下面的数据集，`sp_m_014`等列名中包含了多个信息，分别是：结核病类型、性别和年龄组。
 
@@ -135,7 +135,7 @@ who2 |>
 #> # ℹ 405,434 more rows
 ```
 
-##### 待转换列的列名中包含新的列名
+#### 待转换列的列名中包含新的列名
 
 下面的数据集中，`dob_child1` 和 `dob_child2` 是 `dob` 和 `child` 的组合，`name_child1` 和 `name_child2` 是 `name` 和 `child` 的组合。
 
@@ -201,28 +201,32 @@ household |>
 -   `id_cols`： 规定哪些列不会被转换。有两种情况：
     -   默认情况下，所有未在 `names_from` 和 `values_from` 中指定的列都不会被转换。
     -   如果指定了 `id_cols`，则只有指定的列不会被转换，同时会排除`names_from` 和 `values_from` 中指定的列。
--   `names_from`: 列名，用于生成新列名的列
--   `values_from`: 列名，用于生成新列值的列
--   `names_prefix`: 新列名的前缀。
+-   `names_from`: 列名，用于生成新列名的列，可以是多个列。
+-   `values_from`: 列名，用于生成新列值的列，可以是多个列。
+-   `names_prefix`: 给新列名添加前缀。
+-   `names_sep`：如果 `names_from` 或 `values_from` 包含多个变量，则使用此字符串连接它们的名称。
+-   `names_glue`：同上，使用`.value`的方式进行组合。
+-   `values_fill`：缺失值的填充方式，可以使用list形式，对不同列填充不同的值。
 
+#### 可选参数
 
+-   `names_sort`：是否对新列名进行排序。
+-   `names_vary`：新列名的组合方式，默认是 `"fastest"`，即 `names_from` 和 `values_from` 的组合方式。
+-   `id_expand`：`id_cols`是否使用`expand()`进行扩展。
+-   `names_expand`：同上。
+-   `names_repair`：新列名错误时的修复方式，更多见`vctrs::vec_as_names()`。
+-   `values_fn`：对 `values_from` 列进行处理的函数。
+-   `unused_fn`：对未使用的列进行处理的函数。
 
-
+### `names_from`
 
 
 ```{r}
-df_long <- tibble(
-  di = c(2, 2, 3),
-  id = c(1, 2, 3), # id = 2 缺失
-  time = c("A", "B", "A"),
-  value = c(10, 20, 30)
-)
-
-pivot_wider(
-  df_long,
-  names_from = time,
-  values_from = value,
-  id_expand = F # 完全扩展标识列
+dat <- tibble(
+  id = c("A", "A", "B", "B"),
+  x = c(1,2,5,6),
+  y = c(3,4,7,8),
+  num = c(1,2,1,2)
 )
 
 
