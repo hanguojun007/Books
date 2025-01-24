@@ -31,4 +31,38 @@ Use comments to explain the why of your code, not the how or the what.
 
 使用管道时，不要超过10次。过多的管道操作会导致代码难懂，应该进行分割，使用意义更加明确的小模块。
 
+## file name
 
+给某一个项目中的文件名命名时要遵循下面的原则：
+
+-   机器可读，尽量使用字母，数字，下划线，链接符等。
+
+-   人类可读，文件名应该能表达出文件的内容。
+
+-   尽量在文件开头使用数字，记录code执行顺序。
+
+下面的两个例子中，后者就要比前者更易读。
+
+``` text
+alternative model.R
+code for exploratory analysis.r
+finalreport.qmd
+FinalReport.qmd
+fig 1.png
+Figure_02.png
+model_first_try.R
+run-first.r
+temp.txt
+```
+
+``` text
+01-load-data.R
+02-exploratory-analysis.R
+03-model-approach-1.R
+04-model-approach-2.R
+fig-01.png
+fig-02.png
+report-2022-03-20.qmd
+report-2022-04-02.qmd
+report-draft-notes.txt
+```

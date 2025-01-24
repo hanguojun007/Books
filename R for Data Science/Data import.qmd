@@ -1,0 +1,203 @@
+---
+title: "Data import"
+author: "大番薯本薯"
+date: "2025-01-24"
+date-modified: "2025-01-24"
+format: "html"
+fig-width: 4
+fig-height: 4
+fig-align: center
+execute:
+  warning: false
+---
+
+```{r}
+#| echo: false
+
+source("_common.R")
+```
+
+# Data import
+
+本章介绍使用`readr`包读取文本文件到R中。
+
+日常使用的word，excel格式的文件属于特殊格式的二进制文档，使用文本编辑器打开时会出现乱码。判断一个文件是否是文本文件的最简单方法就是看是否能否使用window中的记事本（mac中的textedit）打开。
+
+常见的文本格式有：
+
+-   csv：逗号分隔的文件
+-   tsv：tab分隔的文件
+-   fwf：固定宽度文件
+-   log：日志文件
+
+readr提供了下面几种读取文件函数：
+
+-   `read_delim`：自动判断分割符。
+-   `read_csv`：读取逗号`,`分隔的文件。
+-   `read_csv2`：读取分号`;`分隔的文件。
+-   `read_tsv`：读取tab`\t`分隔的文件。
+-   `read_fwf`：读取固定宽度文件。
+-   `read_table`：读取固定宽度文件，列之间用空格分隔。
+-   `read_log`：读取 Apache-style 日志文件。
+
+我们以读取csv文件为例，介绍`readr_csv()`函数，其他函数的使用方法类似。
+
+```{r}
+#| message: false
+
+library(tidyverse)
+```
+
+## readr_csv()
+
+### file
+
+该参数为必要参数，用于指定文件路径。可以是网页链接。
+
+每次读取文件后，readr会显示文件的列数，行数，分隔符以及每一列的数据类型。
+
+```{r}
+students <- read_csv("https://pos.it/r4ds-students-csv")
+```
+
+### col_names & name_repair
+
+`col_names` 参数用于指定是否将第一行作为列名，默认为`TRUE`，也可以直接提供一个向量作为列名。
+
+`name_repair` 参数用于指定列名的修复方式，默认为`"unique"`。该参数的默认设置不会对列名进行任何修改，如果列名有重复，则会自动添加后缀。会在常见的带有空格的列名前后添加反引号`` ` ``，而不是强制修改列名，如上面的`students`。
+
+```{r}
+students
+```
+
+### na
+
+`na`参数用于指定哪些字符被视为`NA`。
+
+在上面的`students`中，`N/A`应该被视为`NA`，添加`na = c("", "NA", "N/A")`即可。
+
+```{r}
+#| message: false
+
+students <- read_csv("https://pos.it/r4ds-students-csv", na = c("N/A", ""))
+
+students
+```
+
+### quote
+
+该参数指定一种字符视作引号，引号的作用是将引号内的内容视作一个整体。当cell中的内容出现分隔符时，此参数发挥作用。
+
+```{r}
+read_csv("x,y\n1,'a,b'", quote = "\'")
+```
+
+### skip & comment
+
+`skip`参数用于跳过前n行。
+
+`comment`参数用于指定注释符号，以`#`开头的行会被忽略。
+
+```{r}
+read_csv(
+  "The first line of metadata
+  The second line of metadata
+  x,y,z
+  1,2,3",
+  skip = 2
+)
+
+read_csv(
+  "# A comment I want to skip
+  x,y,z
+  1,2,3",
+  comment = "#"
+)
+```
+
+### col_types
+
+#### guess type
+
+readr 在读取数据时，会基于一种启发性策略（读取前n行进行判断，使用`guess_max`参数设置）来猜测列的属性。
+
+-   列中只包含`T`,`F`, `TRUE`, `FALSE`，则会被解析为逻辑型`col_logical`。
+-   列中只包含数值，则会被解析为数值型`col_number`。
+-   列中只包含符合ISO8601标准的日期，则会被解析为日期型`col_date`或日期时间型`col_datetime`。
+-   否则，列会被解析为字符型`col_character`。
+
+如果你已经知道了每列的类型，可以使用`col_types`参数指定每一列的数据类型。
+
+#### missing value
+
+在实际分析中，某列的类型通常会受制于缺失值的表示方式。例如，如果某列中缺失值用`.`表示，那么该列会被解析为字符型。需要使用`na`参数进行调整。
+
+```{r}
+simple_csv <- "
+  x
+  10
+  .
+  20
+  30"
+
+read_csv(simple_csv)
+
+read_csv(simple_csv, na = ".")
+```
+
+#### Column types
+
+readr 中一共有9中列类型：
+
+-   `col_logical()`: 逻辑型
+-   `col_integer()`: 整型
+-   `col_double()`: 双精度浮点型
+-   `col_number()`: 数值型
+-   `col_character()`: 字符型
+-   `col_factor()`: 因子型
+-   `col_date()`: 日期型
+-   `col_datetime()`: 日期时间型
+-   `col_skip()`: 跳过该列
+
+```{r}
+another_csv <- "
+x,y,z
+1,2,3"
+
+# .default 指定默认列类型
+read_csv(
+  another_csv,
+  col_types = cols(.default = col_character())
+)
+
+# cols_only 只保留x列
+read_csv(
+  another_csv,
+  col_types = cols_only(x = col_character())
+)
+```
+
+### id
+
+`id` 参数指定一个新列名，用于保存文件路径；在读取多个文件时十分有用。
+
+```{r}
+sales_files <- c(
+  "https://pos.it/r4ds-01-sales",
+  "https://pos.it/r4ds-02-sales",
+  "https://pos.it/r4ds-03-sales"
+)
+read_csv(sales_files, id = "file")
+```
+
+## write_csv()
+
+与`readr_csv()`相对，`write_csv()`用于将数据框写入CSV文件。但是`write_csv()`不会保留列的其他类型信息，如`factor`。
+
+```{r}
+students
+write_csv(students, "students-2.csv")
+read_csv("students-2.csv")
+```
+
+如果想保留这些信息，可以使用`write_rds()`或`arrow::write_parquet()`等，将对象保存为二进制结果，并使用对应的`read_rds()`或`arrow::read_parquet()`读取。
