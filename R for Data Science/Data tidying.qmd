@@ -95,7 +95,7 @@ tidy data 是数据整理的标准，它使数据更容易在R中操作、建模
 查看下面的数据集，`sp_m_014`等列名中包含了多个信息，分别是：结核病类型、性别和年龄组。
 
 ```{r}
-#| echo: false
+#| eval: false
 
 who2
 #> # A tibble: 7,240 × 58
@@ -114,7 +114,7 @@ who2
 可以使用`names_sep`参数指定分隔符，将列名拆分为多个列。
 
 ```{r}
-#| echo: false
+#| eval: false
 
 who2 |>
   pivot_longer(
@@ -140,7 +140,7 @@ who2 |>
 下面的数据集中，`dob_child1` 和 `dob_child2` 是 `dob` 和 `child` 的组合，`name_child1` 和 `name_child2` 是 `name` 和 `child` 的组合。
 
 ```{r}
-#| echo: false
+#| eval: false
 
 household
 #> # A tibble: 5 × 5
@@ -156,7 +156,7 @@ household
 参数`names_to`给定为`.value`，表示将列名中的值作为新列的名称。注意`.value`与分隔符分隔后产生的值顺序有关。
 
 ```{r}
-#| echo: false
+#| eval: false
 
 household |>
   pivot_longer(
@@ -212,22 +212,70 @@ household |>
 
 -   `names_sort`：是否对新列名进行排序。
 -   `names_vary`：新列名的组合方式，默认是 `"fastest"`，即 `names_from` 和 `values_from` 的组合方式。
--   `id_expand`：`id_cols`是否使用`expand()`进行扩展。
+-   `id_expand`：`id_cols`是否使用`expand()`进行扩展，`expand()`的作用是补全因子中缺失的组合。
 -   `names_expand`：同上。
 -   `names_repair`：新列名错误时的修复方式，更多见`vctrs::vec_as_names()`。
 -   `values_fn`：对 `values_from` 列进行处理的函数。
 -   `unused_fn`：对未使用的列进行处理的函数。
 
-### `names_from`
+#### `names_from` 来自多列
 
+`names_from` 可以来自多列，此时新列名是这些列的组合，组合的连接字符由`names_sep` 参数控制。
 
 ```{r}
+#| eval: false
+
 dat <- tibble(
-  id = c("A", "A", "B", "B"),
-  x = c(1,2,5,6),
-  y = c(3,4,7,8),
-  num = c(1,2,1,2)
+  id = c("A", "A", "B", "B", "C", "C"),
+  name = c("x", "y", "x", "y", "x", "y"),
+  number = c(1, 2, 1, 2, 1, 2),
+  value = c(1, 2, 3, 4, 5, 6)
 )
 
-
+dat |>
+  pivot_wider(
+    id_cols = "id",
+    names_from = c("name", "number"),
+    values_from = "value",
+    names_sep = "_"
+  )
+# # A tibble: 3 × 3
+#   id      x_1   y_2
+#   <chr> <dbl> <dbl>
+# 1 A         1     2
+# 2 B         3     4
+# 3 C         5     6
 ```
+
+#### `names_glue` 控制列名来自`values_from` 和`names_from` 的组合
+
+与 `pivot_longer()`中`names_to`中的`.value`参数相反，`names_glue` 控制列名来自`values_from` 和`names_from` 的组合。
+
+```{r}
+#| eval: false
+
+dat <- tibble(
+  id = c("A", "A", "B", "B"),
+  x = c(1, 2, 5, 6),
+  y = c(3, 4, 7, 8),
+  num = c(1, 2, 1, 2)
+)
+
+dat |>
+  pivot_wider(
+    id_cols = "id",
+    names_from = "num",
+    values_from = c("x", "y"),
+    names_glue = "{.value}_{num}"
+  )
+
+# # A tibble: 2 × 5
+#   id      x_1   x_2   y_1   y_2
+#   <chr> <dbl> <dbl> <dbl> <dbl>
+# 1 A         1     2     3     4
+# 2 B         5     6     7     8
+```
+
+## more
+
+更多对转换的介绍可以参考：`vignette("pivot", package = "tidyr")`
