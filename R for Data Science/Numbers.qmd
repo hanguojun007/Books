@@ -1,0 +1,301 @@
+---
+title: "Numbers"
+author: "大番薯本薯"
+date: "2025-01-26"
+date-modified: "2025-01-26"
+format: "html"
+fig-width: 4
+fig-height: 4
+fig-align: center
+execute:
+  warning: false
+---
+```{r}
+#| echo: false
+
+source("_common.R")
+```
+
+# tidyverse 中数值向量处理
+
+本章介绍tidyverse中数值向量的处理。
+
+```{r}
+#| message: false
+
+library(tidyverse)
+library(nycflights13)
+```
+
+## 生成number
+
+readr 提供两解析器将字符串转换为数值：
+
+- `parse_double()` 解析数值
+- `parse_number()` 解析数值，忽略非数值字符
+
+```{r}
+x <- c("1.2", "5.6", "1e3")
+parse_double(x)
+x <- c("$1,234", "USD 3,513", "59%")
+parse_number(x)
+```
+
+## 计数
+
+### count()
+
+`count()` 函数用于统计向量中每个变量的唯一值出现次数。参数有：
+
+-   `x`：数据框
+-   `...`：分组变量
+-   `wt`：权重变量
+-   `sort`：是否按频数排序
+-   `name`：频数列名
+-   `.drop`：是否删除空组，当分组变量为因子时有效。
+
+与`count()`类似的函数还有:
+
+-   `tally()`：统计总数
+-   `add_count()`：添加频数列
+-   `add_tally()`：添加总数列
+
+`df |> count(a, b)` 等价于 `df |> group_by(a, b) |> summarise(n = n())`。
+
+`df |> count(a, b, wt = c)` 等价于 `df |> group_by(a, b) |> summarise(n = sum(c))`。
+
+`df |> tally()` 等价于 `df |> summarise(n = n())`。
+
+`df |> tally(wt = c)` 等价于 `df |> summarise(n = sum(c))`。
+
+`add_count()` 和 `add_tally()` 与 `count()` 和 `tally()` 类似，只是不使用`summarise()`，而是使用`mutate()`。
+
+```{r}
+flights |> count(tailnum, wt = distance)
+
+flights |>
+  group_by(tailnum) |>
+  summarise(n = sum(distance))
+
+flights |> tally(wt = distance)
+
+flights |> summarise(n = sum(distance))
+```
+
+### n()
+
+`n()` 是一个特殊的函数，它返回当前组的大小。它只能在 `summarise()`、`mutate()` 和 `filter()` 中使用。
+
+```{r}
+#| error: false
+
+n()
+```
+
+`n_distinct()` 返回向量中唯一项的数目。类似于 `length(unique(x))`。
+
+```{r}
+flights |>
+  group_by(dest) |>
+  summarize(carriers = n_distinct(carrier)) |>
+  arrange(desc(carriers))
+```
+
+## 数值转换
+
+### 向量循环复用规则
+
+R 中进行数值计算（加减乘除等）时，如果两个向量的长度不同，R 会自动将较短的向量循环复用，直到与较长的向量长度相同。例如:
+
+```{r}
+x <- c(1, 2, 10, 20)
+x / 5
+x / c(5, 5, 5, 5)
+```
+
+当两个向量的长度不是整数倍关系时，R 会给出警告:
+
+```{r}
+x * c(1, 2)
+x * c(1, 2, 3)
+```
+
+除数值计算外，前章涉及的比较运算也会循环复用向量。当使用`==`时，要小心向量循环复用规则。例如，下面的代码试图找出 1 月 和 2 月起飞的所有航班，虽然没有报错，但是少了一些行；因为 R 循环复用`c(1, 2)`，所以实际比较的是奇数行是否为 1 月，偶数行是否为 2 月。
+
+```{r}
+# 循环复用
+flights |>
+  filter(month == c(1, 2))
+
+# 没有循环复用
+flights |>
+  filter(month %in% c(1, 2))
+```
+
+### 最小值和最大值
+
+R base 中的`min()`,`max()`会返回一个向量中的最小值和最大值; `pmin()` 和 `pmax()` 会返回一组向量中每个位置的最小值和最大值。
+
+```{r}
+df <- tribble(
+  ~x, ~y,
+  1, 3,
+  5, 2,
+  7, NA,
+)
+# pmin / pmax
+df |>
+  mutate(
+    min = pmin(x, y, na.rm = TRUE),
+    max = pmax(x, y, na.rm = TRUE)
+  )
+# min / max
+df |>
+  mutate(
+    min = min(x, y, na.rm = TRUE),
+    max = max(x, y, na.rm = TRUE)
+  )
+```
+
+### 模运算
+
+R base 提供了模运算函数 `%%` 和 `%/%`，分别用于计算余数和整数除法。
+
+```{r}
+1:10 %/% 3
+1:10 %% 3
+```
+
+### 指数对数运算
+
+对数运行：`log()` 计算自然对数，`log2()` 和 `log10()` 分别计算以 2 和 10 为底的对数。`log1p()` 计算 `log(1 + x)`。
+
+指数运行：`exp()` 计算自然指数，`expm1()` 计算 `exp(x) - 1`，当 `x` 接近 0 时更精确。其他指数使用`^` 计算。
+
+### 约数
+
+R base 提供了五种约数的函数：
+
+-   `round()`：四舍五入
+
+-   `floor()`：向下取整
+
+-   `ceiling()`：向上取整
+
+-   `trunc()`：只保留整数部分
+
+-   `signif()`：四舍五入到有效数字位
+
+```{r}
+round(123.456)
+round(123.456, 2)
+floor(123.456)
+ceiling(123.456)
+trunc(123.456)
+signif(123.456, 3)
+signif(0.00123456, 3)
+```
+
+#### 四舍五入规则
+R 的 `round()` 函数遵循 IEEE 754 标准，采用 **四舍六入五成双** 的规则，这样做可以消除四舍五入造成的数据分布偏移。其规则如下：
+
+-   如果小数点后的数字恰好是 5，且 5 后面没有其他非零数字：
+
+    -   检查小数点前的数字（即整数部分）是奇数还是偶数。
+
+    -   如果整数部分是奇数，则向上舍入（向更大的偶数方向）。
+
+    -   如果整数部分是偶数，则向下舍入（保持为偶数）。
+
+-   如果小数点后的数字不是 5，或者 5 后面还有非零数字：
+
+    -   按照常规的四舍五入规则处理。
+
+在实际的运算中，浮点数的储存值与表示值可能会有微小的误差，导致舍入结果与预期不符。
+
+```{r}
+round(c(1.5, 2.5, 1.51, 2.51))
+# 值可能是0.1或0.2
+round(0.15, 1)
+```
+
+### 数值分区
+
+R base 提供了 `cut()` 函数，用于将数值向量分割成不同的区间。`cut()` 函数的参数有：
+
+-   `x`：数值向量。
+-   `breaks`：指定分割点，可以是一个整数（表示区间的数量，大于等于2）或一个数值向量（表示具体的分割点）。
+-   `labels`：值为`FALSE`时，返回区间的索引；值为`NULL`时，返回区间的默认标签`"(a,b]"`；值为字符向量时，返回自定义的标签。
+-   `right`：逻辑值，决定区间是左开右闭（`TRUE`）还是左闭右开（`FALSE`）。
+-   `include.lowest`：逻辑值，决定是否包含最小值（`right = TRUE`）或最大值（ `right = FALSE`）。
+-   `dig.lab`：整数，当`labels = NULL`时，控制标签的位数。
+-   `ordered_result`：逻辑值，决定是否返回有序因子。
+
+
+```{r}
+x <- c(1, 2, 5, 10, 15, 20)
+# 固定区间数目
+cut(x, breaks = 3, dig.lab = 3)
+# 默认标签
+cut(x, breaks = c(0, 5, 10, 15, 20))
+# 自定义标签
+cut(x,
+  breaks = c(0, 5, 10, 15, 20),
+  labels = c("sm", "md", "lg", "xl")
+)
+# 不使用标签
+cut(x, breaks = c(0, 5, 10, 15, 20), labels = FALSE)
+# 包含最小值
+cut(x, breaks = c(0, 5, 10, 15, 20), include.lowest = TRUE)
+# 左闭右开区间
+cut(x, breaks = c(0, 5, 10, 15, 20), right = FALSE)
+# 返回有序因子
+cut(x, breaks = c(0, 5, 10, 15, 20), ordered_result = TRUE)
+```
+
+### 累计与滑动汇总
+
+R base 提供了一系列累计和滑动汇总函数：
+
+-   `cumsum()`：累计求和
+-   `cumprod()`：累计求积
+-   `cummin()`：累计最小值
+-   `cummax()`：累计最大值
+
+```{r}
+x <- c(2, 1, 3, 2, 5, 3, 4)
+cumsum(x)
+cumprod(x)
+cummin(x)
+cummax(x)
+```
+
+R包`[slider](https://slider.r-lib.org/)`提供了更多的滑动汇总函数。
+
+### 三角函数
+
+R base 提供了一系列三角函数：
+
+-   `sin()`：正弦
+-   `cos()`：余弦
+-   `tan()`：正切
+-   `asin()`：反正弦
+-   `acos()`：反余弦
+-   `atan()`：反正切
+-   `atan2()`：反正切（两个参数）
+-   `sinh()`：双曲正弦
+-   `cosh()`：双曲余弦
+-   `tanh()`：双曲正切
+-   `asinh()`：反双曲正弦
+-   `acosh()`：反双曲余弦
+-   `atanh()`：反双曲正切
+
+```{r}
+flights |>
+  filter(month == 1, day == 1) |>
+  ggplot(aes(x = sched_dep_time, y = dep_delay)) +
+  geom_point()
+
+test <- flights |>
+  filter(month == 1, day == 1)
+```

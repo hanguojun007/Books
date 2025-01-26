@@ -34,3 +34,9 @@ n()
 row_number()
 distinct()
 add_count()
+
+## 便携计算
+count()
+tally()
+add_count()
+add_tally()
