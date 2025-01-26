@@ -1,0 +1,226 @@
+---
+title: "Logical vectors"
+author: "大番薯本薯"
+date: "2025-01-26"
+date-modified: "2025-01-26"
+format: "html"
+fig-width: 4
+fig-height: 4
+fig-align: center
+execute:
+  warning: false
+---
+```{r}
+#| echo: false
+
+source("_common.R")
+```
+
+# Logical vectors
+
+本章介绍tidyverse中对逻辑向量的应用和处理。
+
+```{r}
+#| message: false
+
+library(tidyverse)
+library(nycflights13)
+```
+
+## 比较运算
+
+### 数值比较运算符
+
+R中的数值比较运算符：`<`, `<=`, `>`, `>=`, `!=`, and `==`。
+
+#### 浮点数比较
+
+因为浮点数的存储方式，浮点数比较时，不能使用`==`，而应该使用`dplyr::near()`，如下面示例：
+
+```{r}
+x <- c(1 / 49 * 49, sqrt(2)^2)
+
+# 小数位点小时
+x
+# 小数位点大时
+print(x, digits = 16)
+
+# 比较
+x == c(1, 2)
+near(x, c(1, 2), tol = .Machine$double.eps^0.5)
+```
+
+### 缺失值
+
+`NA`表示未知，因此与`NA`的任何比较都会返回`NA`，表现出一种传染性。
+
+```{r}
+NA > 5
+10 == NA
+NA == NA
+```
+
+判断一个值是否为`NA`，使用`is.na()`函数。
+
+```{r}
+is.na(c(TRUE, NA, FALSE))
+
+is.na(c(1, NA, 3))
+
+is.na(c("a", NA, "b"))
+```
+
+前面介绍的`arrange`函数在对数据框进行排序时会默认将`NA`值放在最后。可以结合`is.na()`函数将`NA`值放在最前面。
+
+```{r}
+flights |>
+  filter(month == 1, day == 1) |>
+  arrange(dep_time)
+
+flights |>
+  filter(month == 1, day == 1) |>
+  arrange(desc(is.na(dep_time)), dep_time)
+```
+
+## 布尔运算
+
+R中的布尔运算符有`&`、`|`、`!`、`xor()`。运算的示意图如下：
+
+![](image/transform.png)
+
+在R中还有`&&`和`||`运算符，它们与`&`和`|`的区别在于：`&&`和`||`只对第一个元素进行运算，而`&`和`|`对所有元素进行运算。`&&`和`||`通常编程中使用，在数据分析中很少使用。
+
+在同时存在布尔运行与比较运算时，比较运算的优先级高于布尔运算。
+
+### 缺失值
+
+布尔运算中夹杂缺失值时，情况比较复杂。
+
+```{r}
+df <- tibble(x = c(TRUE, FALSE, NA))
+
+df |>
+  mutate(
+    and = x & NA,
+    or = x | NA,
+    not = !x,
+    or2 = xor(x, NA)
+  )
+```
+
+从上面的结果中可以看出，只有`FALSE & NA`的结果是`FALSE`，`TRUE | NA`的结果是`TRUE`，其他情况都是`NA`。因为`&`只要有一个是`FALSE`，结果就是`FALSE`，而`|`只要有一个是`TRUE`，结果就是`TRUE`。
+
+### %in%
+
+`%in%` 运算符等同于使用多个`==`,`|`。`x %in% y`可以理解为`x == y[1] | x == y[2] | ... | x == y[n]`；生成一个与x等长的逻辑向量，表示x中的每个元素是否在y中。
+
+```{r}
+1:12 %in% c(1, 5, 11)
+letters[1:10] %in% c("a", "e", "i", "o", "u")
+```
+
+`%in%`处理`NA`时与`==`不同，其等同于`is.na()`。
+
+```{r}
+c(1, 2, NA) == NA
+c(1, 2, NA) %in% NA
+```
+
+### any() & all()
+
+`any()`函数等同于`|`；`all()`函数等同于`&`，用于多个逻辑向量的布尔运算。函数提供了对于`NA`的处理方式：`na.rm = TRUE`。
+
+```{r}
+all(c(TRUE, TRUE, TRUE))
+all(c(TRUE, TRUE, FALSE))
+any(c(TRUE, FALSE, FALSE))
+any(c(FALSE, FALSE, FALSE))
+```
+
+### sum() & mean()
+
+在R中，`TRUE`等同于1，`FALSE`等同于0。因此，`sum()`函数可以用于计算逻辑向量中`TRUE`的个数；`mean()`函数可以用于计算逻辑向量中`TRUE`的比例。
+
+```{r}
+flights |>
+  group_by(year, month, day) |>
+  summarize(
+    proportion_delayed = mean(dep_delay <= 60, na.rm = TRUE),
+    count_long_delay = sum(arr_delay >= 300, na.rm = TRUE),
+    .groups = "drop"
+  )
+```
+
+## 条件转换
+
+类似base R中的`ifelse()`函数，dplyr提供了`if_else()`、`case_when()`函数，用来进行条件转换。
+
+### `if_else()`
+
+`if_else()`函数的参数有：
+
+-   `condition`：逻辑条件
+-   `true`：条件为`TRUE`时的返回值
+-   `false`：条件为`FALSE`时的返回值
+-   `missing`：条件为`NA`时的返回值，默认为`NA`
+-   `ptype`：返回值的类型
+-   `size`：返回值的长度
+
+```{r}
+x <- c(-3:3, NA)
+if_else(x > 0, "+ve", "-ve")
+if_else(x > 0, "+ve", "-ve", "???")
+```
+
+`if_else()`与`ifelse()`的区别在于，`if_else()`会保留类型，而`ifelse()`不会。
+
+```{r}
+# Unlike `ifelse()`, `if_else()` preserves types
+y <- factor(sample(letters[1:5], 10, replace = TRUE))
+ifelse(y %in% c("a", "b", "c"), y, NA)
+if_else(y %in% c("a", "b", "c"), y, NA)
+```
+
+### `case_when()`
+
+`if_else()`通常用于处理两个条件的情况，而`case_when()`可以处理多个条件的情况。例如下面判断大于0，小于0，等于0的例子，需要嵌套`if_else()`实现。
+
+```{r}
+if_else(x == 0, "0", if_else(x < 0, "-ve", "+ve"), "???")
+```
+
+`case_when()`使用方法为：
+
+-   `condition ~ output`，多个条件之间用逗号分隔。当`condition`为`TRUE`时，返回`output`。存在多个条件同时为`TRUE`时，返回第一个满足条件的`output`。各个条件返回的`output`类型必须一致。
+-   `.default`参数用于指定默认值。当没有条件满足时，返回`.default`。
+-   `.ptype`参数用于指定返回值的类型。
+-   `.size`参数用于指定返回值的长度。
+
+```{r}
+#| error: true
+
+case_when(
+  x == 0 ~ "0",
+  x < 0 ~ "-ve",
+  x > 0 ~ "+ve",
+  is.na(x) ~ "???"
+)
+# 使用.default
+case_when(
+  x < 0 ~ "-ve",
+  x > 0 ~ "+ve",
+  .default = "???"
+)
+# 多个条件为TRUE
+case_when(
+  x > 0 ~ "+ve",
+  x > 2 ~ "big"
+)
+
+# output 类型要一致
+if_else(TRUE, "a", 1)
+case_when(
+  x < -1 ~ TRUE,
+  x > 0 ~ now()
+)
+```

@@ -1,0 +1,40 @@
+---
+title: "Visualize.qmd"
+author: "大番薯本薯"
+date: "2025-01-25"
+date-modified: "2025-01-25"
+format: "html"
+fig-width: 4
+fig-height: 4
+fig-align: center
+execute:
+  warning: false
+---
+```{r}
+#| echo: false
+
+source("_common.R")
+```
+
+# ggplot2
+
+## 美学映射
+
+https://ggplot2.tidyverse.org/articles/ggplot2-specs.html
+
+
+## 延申包
+ https://exts.ggplot2.tidyverse.org/gallery/
+
+
+```{r}
+library(tidyverse)
+
+ggplot(mpg, aes(x = displ, y = hwy)) +
+  geom_point()
+ggplot(mpg, aes(x = displ, y = hwy)) +
+  geom_point(position = "identity")
+geom_jitter()
+geom_count()
+geom_boxplot()
+```
