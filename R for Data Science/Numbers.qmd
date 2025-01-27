@@ -84,10 +84,10 @@ flights |> summarise(n = sum(distance))
 
 ### n()
 
-`n()` 是一个特殊的函数，它返回当前组的大小。它只能在 `summarise()`、`mutate()` 和 `filter()` 中使用。
+`n()` 是一个特殊的函数，它返回当前组的大小。它只能在 `summarise()`、`mutate()` 和 `filter()` 等中使用。
 
 ```{r}
-#| error: false
+#| error: true
 
 n()
 ```
@@ -116,6 +116,8 @@ x / c(5, 5, 5, 5)
 当两个向量的长度不是整数倍关系时，R 会给出警告:
 
 ```{r}
+#| warning: true
+
 x * c(1, 2)
 x * c(1, 2, 3)
 ```
@@ -272,30 +274,124 @@ cummax(x)
 
 R包`[slider](https://slider.r-lib.org/)`提供了更多的滑动汇总函数。
 
-### 三角函数
+## 通用转换
 
-R base 提供了一系列三角函数：
+下面介绍一些不仅可以用于数值型向量，也可以用于其他类型向量的转换。
 
--   `sin()`：正弦
--   `cos()`：余弦
--   `tan()`：正切
--   `asin()`：反正弦
--   `acos()`：反余弦
--   `atan()`：反正切
--   `atan2()`：反正切（两个参数）
--   `sinh()`：双曲正弦
--   `cosh()`：双曲余弦
--   `tanh()`：双曲正切
--   `asinh()`：反双曲正弦
--   `acosh()`：反双曲余弦
--   `atanh()`：反双曲正切
+### 排序（rnak）
+
+R base 提供了生成向量秩的函数——`rank()`。有三个参数：
+
+-   `x`：a numeric, complex, character or logical vector.
+-   `na.last`：如何处理`NA`：`FALSE`时位于首位；`TRUE`时位于末位；`NA`时移除；`keep`时保持原状。
+-   `ties.method`：处理重复值的方法：`"average"`,`"first"`,`"last"`,`"random"`,`"max"`,`"min"`。
 
 ```{r}
-flights |>
-  filter(month == 1, day == 1) |>
-  ggplot(aes(x = sched_dep_time, y = dep_delay)) +
-  geom_point()
+x <- c(1, 3, 3, 5, NA, 9)
+rank(x, ties.method = "average", na.last = "keep")
+rank(x, ties.method = "average", na.last = NA)
+rank(x, ties.method = "average")
+rank(x, ties.method = "first")
+rank(x, ties.method = "last")
+rank(x, ties.method = "random")
+rank(x, ties.method = "max")
+rank(x, ties.method = "min")
+```
 
-test <- flights |>
-  filter(month == 1, day == 1)
+dplyr 提供了两大类处理排序问题的函数：
+
+-   整数排序
+
+    -   `row_number()`：等价于`rank(ties.method = "first")`。不添加参数时可以生成当前行数。
+    -   `min_rank()`：等价于`rank(ties.method = "min")`。
+    -   `dense_rank()`：类似于`min_rank()`，但是秩之间没有间隙。
+
+-   比例排序
+
+    -   `cume_dist()`：计算小于等于`${x_i}`的个数，除以`x`的长度。
+    -   `percent_rank()`：计算小于`${x_i}`的个数，除以`x`的长度减1。
+
+使用`desc()`函数生成相反的秩。
+
+```{r}
+df <- tibble(x = x)
+df |>
+  mutate(
+    row_number = row_number(x),
+    row_number_desc = row_number(desc(x)),
+    min_rank = min_rank(x),
+    dense_rank = dense_rank(x),
+    cume_dist = cume_dist(x),
+    percent_rank = percent_rank(x)
+  )
+```
+
+### 偏移（offset）
+
+dplyr 包提供了`lag()`和`lead()`函数，用于生成向前或向后偏移的向量，不足部分补齐。
+
+-   `n`：控制偏移量
+-   `default`：控制补齐值，默认使用`NA`。
+
+```{r}
+x <- c(2, 5, 11, 11, 19, 35)
+lag(x, n = 2)
+lead(x, default = 0)
+```
+
+### 连续标识符
+
+在实际工作中，我们可能会有这种需求：给定一组有序数据，将数据中连续相同的值标记为同一组，将不同或不连续的值标记为其他组。比如每天记录是否下雨，将连续下雨的天标记为一组。
+
+dplyr 包提供了`consecutive_id()`函数，受`data.table::rleid()`启发。
+
+```{r}
+consecutive_id(c(TRUE, TRUE, FALSE, FALSE, TRUE, FALSE, NA, NA))
+consecutive_id(c(1, 1, 1, 2, 1, 1, 2, 2))
+```
+
+下面的示例来自于[stackoverflow](https://stackoverflow.com/questions/27482712/remove-collapse-consecutive-duplicate-values-in-sequence)，要求x中连续项只保留第一个。
+
+```{r}
+df <- tibble(
+  x = c("a", "a", "a", "b", "c", "c", "d", "e", "a", "a", "b", "b"),
+  y = c(1, 2, 3, 2, 4, 1, 3, 9, 4, 8, 10, 199)
+)
+
+df |>
+  group_by(id = consecutive_id(x)) |>
+  slice_head(n = 1)
+```
+
+## 统计汇总
+
+R base 提供了许多用于统计汇总的函数：
+
+-   `mean()`：求均值
+-   `sd()`：求方差
+-   `min()`：求最小值
+-   `median()`：求中值
+-   `max()`：求最大值
+-   `quantile(x, probs = 0.95, na.rm = T)`：求分位数
+-   `IQR()`：等同于`IQR(x) = quantile(x, 3/4) - quantile(x, 1/4)`
+
+dplyr 包提供了获取向量中某个位置的值：
+
+-   `first()`
+-   `nth()`
+-   `last()`
+
+```{r}
+x <- c(2, 3, 4, 2, 1, 2, 4, 0, 6)
+mean(x)
+sd(x)
+min(x)
+median(x)
+max(x)
+quantile(x, probs = 0.25)
+quantile(x, probs = 0.75)
+IQR(x)
+first(x)
+nth(x, 3)
+last(x)
 ```
