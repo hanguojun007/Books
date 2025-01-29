@@ -1,0 +1,354 @@
+---
+title: "Strings.qmd"
+author: "大番薯本薯"
+date: "2025-01-28"
+date-modified: "2025-01-28"
+format: "html"
+fig-width: 4
+fig-height: 4
+fig-align: center
+execute:
+  warning: false
+---
+```{r}
+#| echo: false
+
+source("_common.R")
+```
+
+# tidyverse 中的字符串向量处理
+
+本章介绍tidyverse中对字符串向量的处理。主要是`stringr`包的介绍，该包中涉及到的函数都是以`str_`开头。
+
+```{r}
+#| message: false
+
+library(tidyverse)
+library(babynames)
+```
+
+## 创建字符串
+
+R 使用`'`或`"`创建字符串；推荐使用`"`，除非字符串中包含`"`。
+
+```{r}
+string1 <- "This is a string"
+string2 <- 'If I want to include a "quote" inside a string, I use single quotes'
+```
+
+### 转义符
+
+R 使用`\`进行转义，如`\n`表示换行，`\t`表示制表符，`"`表示字符串中的双引号，`\\`表示字符串中的反斜杠。更多关于转义的内容见`?Quotes`。
+
+```{r}
+table_quote <- "\t"
+double_quote <- "\"" # or '"'
+backslash <- "\\"
+```
+
+R 的原生`print`会打印出转义前的内容；使用`str_view()`可以查看转义后的内容。
+
+```{r}
+x <- c(table_quote, double_quote, backslash)
+x
+str_view(x)
+```
+
+#### str_view()
+
+`str_view()`有五个参数：
+
+-   `string`：要处理的字符串向量。
+-   `pattern`：要搜索的模式。
+-   `match`：值为`TRUE`时，只显示匹配到的字符串；`NA`时，都显示；`FALSE`只显示没匹配的字符串。
+-   `html`：是否使用html进行展示。
+-   `use_escapes`：`TRUE`时显示转义前的内容，与print无异。
+
+`str_view()`使用`<>`将匹配到的字符括起来；匹配到的字符和除空格、换行外的空白字符会以蓝色显示；`NA`使用红色，`"NA"`与其他字符串无异，使用灰色。
+
+```{r}
+# 只显示匹配到的字符串
+str_view(c("abc", "def", "fghi"), "e")
+# 显示所有字符串
+str_view(c("abc", "def", "fghi"), "e", match = NA)
+# 显示没匹配到的字符串
+str_view(c("abc", "def", "fghi"), "e", match = FALSE)
+# 特殊字符颜色
+str_view(c("ab c", "de\nf", "fg\thi", NA, "NA"))
+```
+
+### raw strings
+
+有时候我们的字符串中会有多个需要转义的`'`、`"`，如果每个都使用转义符会很凌乱，如下面的示例：
+
+```{r}
+tricky <- "
+double_quote <- \"\\\"\" # or '\"'
+single_quote <- '\\'' # or \"'\"
+"
+str_view(tricky)
+```
+
+R 提供了`r"(your strings)"`的模式，可以直接书写无需转义。如果字符串中存在`(`或`)`，可以使用`[]`、`{}`，如果任然不满足，可以在开头和结尾添加任意相同长度的`-`。
+
+```{r}
+tricky <- r"---{
+double_quote <- "\"" # or '"'
+single_quote <- '\'' # or "'"
+}---"
+str_view(tricky)
+```
+
+## 从数据中拼接字符串
+
+在 R base 环境中有两种字符串拼接方式：`paste`，`sprintf`；glue包提供了额外的`glue`函数；stringr包提供了`str_c()`，`str_glue()`，`str_flatten()`。
+
+### paste()
+
+`paste()`函数有四个参数：
+
+-   `...`：任意数目的任意长度的字符串向量。
+-   `sep`：向量间元素的连接符，会循环复用长度短的向量。
+-   `collapse`：生成新向量间的连接符，使用此参数时只有一个字符串。
+-   `recycle0`：为`TRUE`时，当存在长度为0的向量时，会产生`character(0)`。
+
+```{r}
+x <- LETTERS[1:4]
+y <- letters[1:2]
+z <- character(0)
+paste(x, y, z, sep = "-")
+paste(x, y, z, sep = "-", collapse = ":")
+paste(x, y, z, sep = "-", recycle0 = TRUE)
+```
+
+### sprintf()
+
+`sprintf()`是对c函数的封装，返回一个包含格式化文本和变量值的字符串向量。使用`%s`作为字符串的占位符，下面是一个示例，更多占位符见`?sprintf`。
+
+```{r}
+Name <- "Jack"
+sprintf("Rose & %s", Name)
+```
+
+### glue
+
+`glue`函数的使用方法同`sprintf`类似，使用方法为：将要填充的字符串变量用`{}`包裹起来。
+
+```{r}
+glue::glue("Rose & {Name}")
+```
+
+### str_c()
+
+`str_c()`有两个参数：`sep`,`collapse`；类似于`paste0()`，但`str_c()`对`NA`的处理方式和循环复用规则与其不同。 如下例所示：`NA`项仍然返回`NA`；`str_c()`仅支持单个字符串的循环复用。
+
+```{r}
+#| error: true
+
+df <- tibble(name = c("Flora", "David", "Terra", NA))
+df |> mutate(greeting = str_c("Hi ", name, "!"))
+
+
+paste(name, c(".", "!"))
+str_c(name, c(".", "!"))
+```
+
+可以使用`coalesce()`或`str_replace_na()`对`NA`进行处理。
+
+```{r}
+df |>
+  mutate(
+    greeting1 = str_c("Hi ", coalesce(name, "you"), "!"),
+    greeting2 = coalesce(str_c("Hi ", name, "!"), "Hi!")
+  )
+```
+
+### str_glue()
+
+`str_glue()`与`str_c()`函数的功能类似，但是`str_glue`会将`NA`视作`"NA"`。
+
+```{r}
+df |> mutate(greeting = str_glue("Hi {name}!"))
+df |> mutate(greeting = str_glue("Hi {name}!", .na = "you"))
+```
+
+### str_flatten()
+
+与`str_c()`，`str_glue()`适配`mutate()`，产生等长的向量不同；`str_flatten()`适配`summarise()`，会将多个字符串向量拼接为一个字符串。
+
+有四个参数：
+
+-   `string`：要拼接的字符串向量。
+-   `collapse`：拼接用的字符串。
+-   `last`：最后一个拼接字符串。
+-   `na.rm`：是否移除`NA`，如果为`FALSE`则使用`"NA"`替代。
+
+```{r}
+df <- tribble(
+  ~name, ~fruit,
+  "Carmen", "banana",
+  "Carmen", "apple",
+  "Carmen", NA,
+  "Terence", "cantaloupe",
+  "Terence", "papaya",
+  "Terence", "mandarin"
+)
+df |>
+  group_by(name) |>
+  summarize(fruits = str_flatten(fruit, collapse = ", ", last = " and ", na.rm = TRUE))
+```
+
+## 从字符串中抽提数据
+
+tidyr 包提供了五种从字符串中抽提数据的函数：
+
+-   `df |> separate_longer_delim(col, delim)`
+-   `df |> separate_longer_position(col, width)`
+-   `df |> separate_wider_delim(col, delim, names)`
+-   `df |> separate_wider_position(col, widths)`
+-   `df |> separate_wider_regex(col, patterns)`
+
+其中`longer*`生成长数据，`wider*`生产宽数据；`*delim`指定分割符，`*position`指定位置，`*regex`指定正则模式。`separate_wider_regex`涉及正则，详见正则一文。
+
+### 生成长数据
+
+```{r}
+df1 <- tibble(x = c("a,b,c", "d,e", "f"), y = LETTERS[1:3])
+df1 |>
+  separate_longer_delim(x, delim = ",")
+```
+
+`separate_longer_position()`的行数由`ceiling(nchar(x)/width)`计算得出，如果`nchar(x) = 0`使用`keep_empty`判断是否要保留空行。
+
+```{r}
+df2 <- tibble(x = c("1211", "131", "21", ""), y = LETTERS[1:4])
+df2 |>
+  separate_longer_position(x, width = 2, keep_empty = TRUE)
+```
+
+### 生成宽数据
+
+生成宽数据稍微复杂一点，要设置新生成列的列名。如果不想要某列，设置其列名为`NA`即可。
+
+```{r}
+df3 <- tibble(x = c("a10.1.2022", "b10.2.2011", "e15.1.2015"))
+df3 |>
+  separate_wider_delim(
+    x,
+    delim = ".",
+    names = c("code", NA, "year")
+  )
+```
+
+除`names`参数外，这两个函数还有五个参数：
+
+-   `names_sep`：如果提供，就会将分割列的列名与新列名进行拼接。
+-   `names_repair`：新列名检查修复规则。
+-   `too_few`：分割结果不足时的策略。
+    -   `error`：报错
+    -   `debug`：检查debug
+    -   `align_start`：首端对齐，其余不足用`NA`补齐
+    -   `align_error`：末端对齐，其余不足用`NA`补齐
+-   `too_many`：分割结果过多时的策略。
+    -   `error`：报错
+    -   `debug`：检查debug
+    -   `drop`：丢弃多余
+    -   `merge`：合并多余
+-   `cols_remove`：分割列是否移除，默认移除。
+
+```{r}
+df4 <- tibble(x = c("202215TX", "202122LACC", "202325"))
+df4 |>
+  separate_wider_position(
+    x,
+    widths = c(year = 4, age = 2, state = 2),
+    names_sep = "_",
+    too_few = "align_start",
+    too_many = "drop",
+    cols_remove = FALSE
+  )
+```
+
+## Letters
+
+### 获取字符长度
+
+R base 中的`nchar()`，stringr 中的`str_length()`，`str_width()`。
+
+`str_length()`显示字符个数，`str_width()`显示占位长度。
+
+```{r}
+x <- c("i", "like", "programming", NA, "正确")
+nchar(x)
+str_length(x)
+str_width(x)
+```
+
+### 截取字符
+
+`str_sub()`函数使用`start`，`end`控制截取的位置。
+
+```{r}
+x <- c("Apple", "Banana", "Pear")
+str_sub(x, 1, 3)
+```
+
+## 非英文字符
+
+### 编码
+
+使用`charToRaw()`函数查看字符的编码。
+
+```{r}
+charToRaw("大番薯")
+```
+
+目前广泛使用的是`UTF-8`编码格式，当遇到由较老的编码生成的文本时，可能会产生乱码，需要使用正确的编码格式。`readr`提供了`guess_encoding()`函数来自行判断编码格式。
+
+```{r}
+x1 <- "El Ni\xf1o was particularly bad this year"
+str_view(x1)
+str_view(iconv(x1, from = "Latin1", to = "UTF-8"))
+x2 <- "\x82\xb1\x82\xf1\x82\xc9\x82\xbf\x82\xcd"
+str_view(x2)
+str_view(iconv(x2, from = "SHIFT-JIS", to = "UTF-8"))
+```
+
+更多有关字符编码格式的内容见 http://kunststube.net/encoding/ 。
+
+### 字母变体
+
+有些字母十分特殊，在打印台中显示的一样，但是底层编码不同，如下例中的前者单独构成，后者由两部分构成。
+
+```{r}
+u <- c("\u00fc", "u\u0308")
+str_view(u)
+```
+
+除了底层编码不同，在字符长度和逻辑判断上也不同，需要特殊处理。
+
+```{r}
+nchar(u)
+str_length(u)
+str_width(u)
+u[[1]] == u[[2]]
+str_equal(u[[1]], u[[2]])
+```
+
+### 与locale相关的函数
+
+在tidyverse包中有两类与locale相关的函数：一类是根据字母表顺序排序，一类是大小写转换。
+
+在土耳其语言中，大小写转换与英语不同，如下例所示。
+
+```{r}
+str_to_upper(c("i", "ı"))
+str_to_upper(c("i", "ı"), locale = "tr")
+```
+
+排序时，捷克语中“ch”是排在“h”之后的字母。
+
+```{r}
+str_sort(c("a", "c", "ch", "h", "z"))
+str_sort(c("a", "c", "ch", "h", "z"), locale = "cs")
+```

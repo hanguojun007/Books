@@ -40,3 +40,7 @@ count()
 tally()
 add_count()
 add_tally()
+
+## stringr
+
+str_veiw()
