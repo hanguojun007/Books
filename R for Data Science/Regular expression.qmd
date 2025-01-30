@@ -1,0 +1,373 @@
+---
+title: "Regular expression.qmd"
+author: "大番薯本薯"
+date: "2025-01-30"
+date-modified: "2025-01-30"
+format: "html"
+fig-width: 4
+fig-height: 4
+fig-align: center
+execute:
+  warning: false
+---
+
+```{r}
+#| echo: false
+
+source("_common.R")
+```
+
+# 正则表达
+
+本章介绍搭配stringr使用的正式表达式。
+
+```{r}
+#| message: false
+
+library(tidyverse)
+library(babynames)
+```
+
+## pattern 简介
+
+如上章介绍到的`str_view()`中的参数`pattern`，它用于匹配字符串中的模式。使用`str_view()`更加方便的让我们理解正则表达式。如下面所示，`fruit`中所有包含`berry`的字符串都会被匹配到，并且给出字符串的位置，匹配到的内容会使用`<>`括起来。
+
+```{r}
+str_view(fruit, "berry")
+```
+
+正则表达式涉及到的字符有两类：
+
+-   字母和数字构成的**原义字符**（literal characters）。
+-   `.`, `+`, `*`, `[`, `]`, `?`等构成的**元字符**（metacharacters）。
+
+元字符通常可以分为：
+
+-   转义：`\`
+-   定位符：`^`, `$`, `\b`
+-   字符集：`[]`,`[^]`,`-`,`.`,`d+`等字符集
+-   量词：`+`, `*`, `?`, `{n}`, `{n,}`, `{n,m}`
+-   组别：`()`
+-   或：`|`
+
+## pattern 详解
+
+### 转义
+
+在前章字符串中介绍过字符串的转义，正则表达式也有转义，且正则表达式的转义字符也是`\`。正因如此，在实际使用字符串来构成正则表达式时，需要格外注意：
+
+-   使用`\\`在字符串中表示正则转义符，如要表示实际的`.`，要在前面添加`\\.`。
+-   使用`\\\\`在字符串中表示正则中转义后的`\`。
+
+```{r}
+str_view("abc...", "\\.")
+str_view("abc\t\\", "\\\\")
+```
+
+使用前章中的原义字符串模式，可以少一层转义。
+
+```{r}
+str_view(r"{abc...}", r"{\.}")
+str_view(r"{abc\t\\}", r"{\\}")
+```
+
+### 定位符
+
+定位符有三个：
+
+-   `^`：匹配字符串开头
+-   `$`：匹配字符串结尾
+-   `\b`：只匹配`\b`之间的字符
+
+```{r}
+# 匹配开头是a的字符串
+str_view(fruit, "^a")
+# 匹配结尾是a的字符串
+str_view(fruit, "a$")
+# 只匹配`\b`之间的字符
+str_view(fruit, "\\bapple\\b")
+str_view(fruit, "apple")
+```
+
+下面是一个展示其本质的例子：
+
+```{r}
+str_view("abc", c("$", "^", "\\b"))
+str_replace_all("abc", c("$", "^", "\\b"), "--")
+```
+
+### 字符集
+
+字符集是一个字符的集合，用来匹配其中的任意一个字符。有关字符集的内容记住三点：
+
+-   字符集中除`[`,`]`,`-`,`^`,`\`有特殊意义外，其他都表示其本来含义。
+    -   使用`[]`来创建集合。
+    -   `-`表示范围，如`a-z`,`0-9`。
+    -   `^`表示取反。
+    -   `\`用来对上述五个字符转义。
+-   字符集中的字符没有顺序，如`[abc]`和`[cba]`是等价的。
+-   一个字符集代表一个占位，配合量词如`+`表示多个占位。
+
+```{r}
+x <- "abcd ABCD 12345 -!@#%."
+str_view(x, "[abc]")
+str_view(x, "[a-z]+")
+str_view(x, "[^a-z0-9]+")
+str_view("a-b-c", "[a-c]")
+str_view("a-b-c", "[a\\-c]")
+```
+
+下面是一些常见字符集：
+
+-   `\d`：匹配任何数字。
+-   `\D`：匹配任何非数字。
+-   `\s`：匹配任何空白，如空格、制表符、换行。
+-   `\S`：匹配任何非空白。
+-   `\w`：匹配任何字母和数字。
+-   `\W`：匹配任何非字母和数字。
+
+```{r}
+x <- "abcd ABCD 12345 -!@#%."
+str_view(x, "\\d+")
+str_view(x, "\\D+")
+str_view(x, "\\s+")
+str_view(x, "\\S+")
+str_view(x, "\\w+")
+str_view(x, "\\W+")
+```
+
+### 量词
+
+如上，除`+`外，还有`*`, `?` 及由`{}`构成的量词。
+
+-   `?`：\[0，1\]
+-   `+`：\>= 1
+-   `*`：\>= 0
+-   `{n}`：= n
+-   `{n, }`：\>= n
+-   `{n, m}`：\[m, n\]
+
+### 组别
+
+使用`()`来定义一个组别，定义好的组别可以提取或再次引用。`\1`表示第一个组别，`\2`表示第二个组别，以此类推。
+
+```{r}
+# (..)\\1 表示任意两字符重复出现一次
+str_view(fruit, "(..)\\1")
+```
+
+如果不想捕获返回组别，仅作优先级使用，可以在最开始添加`?:`
+
+```{r}
+x <- c("a gray cat", "a grey dog")
+str_match(x, "gr(e|a)y")
+str_match(x, "gr(?:e|a)y")
+```
+
+### 优先级
+
+同四则运算一样，正则表达式也有优先级，下面列出执行步骤：
+
+1.  确定字符是什么，执行转义符和字符集。
+2.  确定字符数量，执行量词。
+3.  确定字符位置，执行定位符。
+4.  执行逻辑关系`|`。
+5.  补充说明：`()`内的组别先执行。
+
+一个正则表达式数独游戏：https://regexcrossword.com/
+
+## pattern 调控
+
+stringr 包提供了四个用于调控pattern的函数：
+
+-   `boundary()`
+-   `coll()`
+-   `fixed()`
+-   `regex()`
+
+### regex()
+
+该函数有6个参数：
+
+-   `pattern`：正则表达式
+-   `ignore_case`：是否忽略大小写。
+-   `multiline`：是否应用于多行。
+-   `comments`：是否有以`#`开头的注释。
+-   `dotall`：`.`是否代表所有字符，包括`\n`。
+-   `...`：stringi包的其他参数，详见`?regex`。
+
+```{r}
+# 忽略大小写
+bananas <- c("banana", "Banana", "BANANA")
+str_view(bananas, "banana")
+str_view(bananas, regex("banana", ignore_case = TRUE))
+# 应用多行
+x <- "Line 1\nLine 2\nLine 3"
+str_view(x, "^Line")
+str_view(x, regex("^Line", multiline = TRUE))
+# 添加注释
+phone <- regex(
+  r"(
+    \(?     # optional opening parens
+    (\d{3}) # area code
+    [)\-]?  # optional closing parens or dash
+    \ ?     # optional space
+    (\d{3}) # another three numbers
+    [\ -]?  # optional space or dash
+    (\d{4}) # four more numbers
+  )",
+  comments = TRUE
+)
+str_extract(c("514-791-8141", "(123) 456 7890", "123456"), phone)
+# . 匹配所有字符
+x <- "Line 1\nLine 2\nLine 3"
+str_view(x, ".Line")
+str_view(x, regex(".Line", dotall = TRUE))
+```
+
+### fixed()
+
+该函数会将正则表达式转换为普通的字符串。
+
+```{r}
+str_view(c("", "a", "."), fixed("."))
+```
+
+也可以忽略大小写。
+
+```{r}
+str_view("x X", "X")
+str_view("x X", fixed("X", ignore_case = TRUE))
+```
+
+### coll()
+
+该函数用于生成其他编码格式的正则表达式。如下面示例：在`locale = "tr"`时，可以精准地忽略大小写匹配。
+
+```{r}
+str_view("i İ ı I", fixed("İ", ignore_case = TRUE))
+str_view("i İ ı I", coll("İ", ignore_case = TRUE, locale = "tr"))
+```
+
+### boundary()
+
+`boundary()`函数比较特殊，它不对任何pattern调控，而是生成pattern；根据参数用来确定字符、单词、句子、行的边界。参数有：
+
+-   `type`：有四类：`"character"`,`"word"`,`"sentence"`,`"line_break"`
+-   `skip_word_none`：是否忽略没有字母或数字的word。
+
+```{r}
+# Word boundaries
+words <- c("These are somewords. This is sentence.")
+str_view(words, boundary(type = "character")) # 字符
+str_view(words, boundary(type = "line_break")) # 行分割
+str_view(words, boundary(type = "sentence")) # 按句分割
+str_view(words, boundary(type = "word", skip_word_none = FALSE)) # 按单词分割
+str_view(words, boundary(type = "word", skip_word_none = NA))
+str_view(words, boundary(type = "word", skip_word_none = TRUE))
+```
+
+## 使用正则表达式的函数
+
+正则表达式广泛用于字符串的检索、截取、替换等任务，许多包含`pattern`参数的函数都用到了正则表达式。
+
+### R base
+
+R base 中应用正则表达式的函数十分丰富，例如grep系列（`grep()`,`grepl()`等，详见`?grep`），`list.files()`等。但 R base 使用的正则表达式与 stringr 使用的不同。
+
+stringr 构建于 stringi 包，使用的是[ICU engine](https://unicode-org.github.io/icu/userguide/strings/regexp.html)；R base 使用[TRE engine](https://github.com/laurikari/tre)或[PCRE engine](https://www.pcre.org/)，通过参数`perl`调控。
+
+### stringr
+
+#### str_detect()
+
+该函数检测pattern是否存在，返回逻辑向量。
+
+```{r}
+str_detect(c("a", "b", "c"), "[aeiou]")
+```
+
+#### str_subset()
+
+该函数返回匹配到pattern的字符串，等价于`x[str_detect(x, pattern)]`,`grep(pattern, x, value = TRUE)`
+
+```{r}
+fruit <- c("apple", "banana", "pear", "pineapple")
+str_subset(fruit, "^a")
+```
+
+#### str_which()
+
+该函数返回匹配到pattern的字符串位置，等价于`which(str_detect(x, pattern))`, `grep(pattern, x)`。
+
+```{r}
+str_which(fruit, "^a")
+```
+
+#### str_count()
+
+该函数用于统计字符串中匹配到pattern的个数。
+
+```{r}
+x <- c("apple", "banana", "pear")
+str_count(x, "p")
+```
+
+需要注意的是：正则表达式在匹配pattern时，已经匹配到的字符不会再参与匹配。
+
+```{r}
+str_count("abababa", "aba")
+str_view("abababa", "aba")
+```
+
+#### str_replace()
+
+该函数替换字符串中第一个匹配到pattern的字符。`str_replace_all()`替换所有字符。
+
+```{r}
+x <- c("apple", "pear", "banana")
+str_replace(x, "[aeiou]", "-")
+str_replace_all(x, "[aeiou]", "-")
+```
+
+同`str_replace()`类似，`str_remove()`，`str_remove_all()`移除匹配到的字符。
+
+```{r}
+str_remove(x, "[aeiou]")
+str_remove_all(x, "[aeiou]")
+```
+
+### tidyr
+
+#### separate_wider_regex()
+
+如前章介绍，该函数通过pattern将字符串进行分割，生成新的列。
+
+```{r}
+df <- tribble(
+  ~str,
+  "<Sheryl>-F_34",
+  "<Kisha>-F_45",
+  "<Brandon>-N_33",
+  "<Sharon>-F_38",
+  "<Penny>-F_58",
+  "<Justin>-M_41",
+  "<Patricia>-F_84",
+)
+df |>
+  separate_wider_regex(
+    str,
+    patterns = c(
+      "<",
+      name = "[A-Za-z]+",
+      ">-",
+      gender = ".",
+      "_",
+      age = "[0-9]+"
+    )
+  )
+```
+
+------------------------------------------------------------------------
+
+更多有关正则表达式的介绍参考：`vignette("regular-expressions", package = "stringr")`; https://www.regular-expressions.info/。
