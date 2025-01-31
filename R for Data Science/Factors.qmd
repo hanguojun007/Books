@@ -1,0 +1,279 @@
+---
+title: "Factors.qmd"
+author: "大番薯本薯"
+date: "2025-01-31"
+date-modified: "2025-01-31"
+format: "html"
+fig-width: 4
+fig-height: 4
+fig-align: center
+execute:
+  warning: false
+---
+```{r}
+#| echo: false
+
+source("_common.R")
+```
+
+# Factors
+
+本章介绍使用forcats包处理因子。
+
+```{r}
+#| message: false
+
+library(tidyverse)
+```
+
+## 构建factor
+
+因子是一组类别、数目、顺序固定的分类变量，广泛应用于绘图和建模中。
+
+### factor()
+
+R base 使用`factor()`创建因子，该函数有六个参数：
+
+-   `x`：向量。
+-   `levels`：设定因子顺序。如果没有设定，默认使用`sort(unique(x))`。向量中未被levels覆盖的值会变为`NA`。
+-   `labels`：与`levels`等长，设定`levels`的标签，同时改变向量中的值。
+-   `exclude`：排除`levels`中的某个因子，默认值为`NA`，设定为`NULL`后`NA`可以成为因子，默认顺序位于最后。
+-   `ordered`：是否设定为有序。此顺序指的是类似：小，中，大等，`levels`中的顺序只是先后顺序，实际是无须。
+-   `nmax`：当`levels`没有设定时，给定`levels`最大长度，节省运行时间。
+
+```{r}
+x <- c("a", "a", "c", "d", "d", "d", "b", NA)
+# levels 设定
+factor(x)
+factor(x, levels = c("a", "c", "d", "b"))
+factor(x, levels = c("a", "c", "b"))
+# exclude 设定
+factor(x, exclude = "b")
+factor(x, exclude = NULL)
+# labels 设定
+factor(x, levels = letters[1:4], labels = LETTERS[1:4])
+# ordered 设定
+factor(x, levels = letters[1:4], ordered = TRUE)
+```
+
+在使用因子过程中要注意：当factor进行合并时，会先按照普通向量合并，然后重新设定levels。
+
+```{r}
+f1 <- factor(c("A", "B"), levels = c("A", "B"))
+f2 <- factor(c("C", "B"), levels = c("C", "B"))
+c(f1, f2)
+
+f1 <- factor(c("A", "B"), levels = c("A", "B"))
+f2 <- factor(c("C", "B"), levels = c("C", "B"))
+unlist(list(f1, f2))
+```
+
+### fct()
+
+如上所述，`factor()`在处理levels覆盖不及时会在向量中产生`NA`并不报错。tidyverse认为这是不合理也是不谨慎的操作，所以forcats包中的`fct()`在创建因子时会要求必须覆盖向量中所有的值，未覆盖的值要通过`na`参数提供。
+
+```{r}
+#| error: true
+
+# 当未能覆盖时，报错
+fct(x, levels = c("a", "c", "b"))
+# 给定na参数后，不报错
+fct(x, levels = c("a", "c", "b"), na = "d")
+```
+
+## 调整factor
+
+对于因子的调整主要针对于`levels`，有两方面：一是调整`levels`顺序，一是修改`levels`值。
+
+### 调整顺序
+
+#### fct_reorder()
+
+`fct_reorder()` 根据另一个变量的值由低到高对因子水平进行重新排序。有七个参数：
+
+-   `.f`：要调整的因子。
+-   `.x`：调整依据，即另一个变量，要求为数值型。
+-   `.fun`：当`.x`存在多个时的函数，默认是`median()`。
+-   `...`：`.fun`的其他参数。
+-   `.na_rm`：是否移除`NA`，默认`NULL`会移除并会生成警告，`TRUE`时移除，`FALSE`不移除。
+-   `.default`：当移除所有`NA`后导致`.fun`产生空值时的代替值，默认是`Inf`。
+-   `.desc`：是否降序，默认`FALSE`。
+
+```{r}
+df <- tibble(
+  category = factor(c("a", "b", "b", "b", "c", "c", "d")),
+  value = c(2, 5, -2, 6, 3, 5, NA)
+)
+df
+# 默认
+fct_reorder(df$category, df$value)
+# .na_rm = TRUE
+fct_reorder(df$category, df$value, .na_rm = TRUE)
+# .fun = mean
+fct_reorder(df$category, df$value, .fun = mean)
+# .default = 10
+fct_reorder(df$category, df$value, .na_rm = TRUE, .default = 0)
+# .desc = TRUE
+fct_reorder(df$category, df$value, .desc = TRUE)
+```
+
+与`fct_reorder()`类似的还有`fct_reorder2()`，详见`?fct_reorder2`。要注意内置函数`last2()`和`first2()`，本人暂时没有想到该函数运行的具体机制。
+
+```{r}
+df <- tibble(
+  category = factor(c("a", "b", "c", "a", "b", "c")),
+  time = c(1, 1, 1, 2, 2, 2),
+  value = c(2, 5, 3, 4, 6, 5)
+)
+# df |> arrange(time, value)
+fct_reorder2(df$category, df$time, df$value)
+last2(df$time, df$value)
+first2(df$time, df$value)
+```
+
+#### fct_relevel()
+
+该函数可以移动因子中任意level到指定位置。有三个参数：
+
+-   `.f`：因子。
+-   `...`：要移动的level或者一个函数。
+-   `after`：要移动到的位置。
+
+```{r}
+f <- factor(c("a", "b", "c", "d"), levels = c("b", "c", "d", "a"))
+f
+fct_relevel(f) # 不添加参数，无变化
+fct_relevel(f, "b", "a") # 将 b,a 置于最前
+fct_relevel(f, "a", after = Inf) # 将 a 置于最后
+fct_relevel(f, sort) # 应用函数
+```
+
+#### 其他
+
+-   `fct_inorder(f, ordered = NA)`：按出现顺序排序。
+-   `fct_infreq(f, w = NULL, ordered = NA)`：按频数从高到低排序，`w`为权重。
+-   `fct_inorder(f, ordered = NA)`：按1，2，3排序。
+
+```{r}
+f <- factor(c("b", "b", "a", "c", "c", "c"))
+f
+fct_inorder(f)
+fct_infreq(f)
+```
+
+```{r}
+f <- factor(1:3, levels = c("3", "2", "1"))
+f
+fct_inseq(f)
+```
+
+-   `fct_rev(f)`：反转顺序，等价于`fct_relevel(f,rev)`。
+-   `fct_shuffle(f)`：随机排序，等价于`fct_relevel(f, sample)`。
+
+### 修改值
+
+### fct_recode()
+
+该函数会同时修改因子中的值和level。等号左边是新level，右边是就level。当左边值为`NULL`时，移除该level。
+
+```{r}
+x <- factor(c("apple", "bear", "banana", "dear"))
+fct_recode(x, "fruit" = "apple", "fruit" = "banana")
+# 移除level
+fct_recode(x, NULL = "apple", fruit = "banana")
+```
+
+### fct_collapse()
+
+该函数可以将因子中的多个level进行合并，生成一个新的level。`other_level`设定那些level为`other`，`other`总是位于因子level末端。
+
+```{r}
+x <- factor(c("apple", "bear", "banana", "dear"))
+x
+fct_collapse(x, "fruit" = c("apple", "banana"))
+```
+
+### fct_lump_*()
+
+`fct_collapse()`函数需要手动去定义`other`，`fct_lump_*()`函数提供更方便的方法：根据不同标准将符合标准的level规定为`Other`通用
+
+有四个函数：
+-   `fct_lump_min()`：根据level频数最小值标准过滤`min`。
+-   `fct_lump_prop()`：根据level频数比例标准过滤`prop`，正数为小于比例的合并；负数为大于比例的合并。
+-   `fct_lump_n()`：根据level频数值标准过滤`n`，正数为小于n的合并；负数为大于n的合并。
+-   `fct_lump_lowfreq()`：自动将频数小的level合并，要求合并后的结果频数依然最小。
+
+```{r}
+x <- factor(rep(LETTERS[1:9], times = c(40, 10, 5, 27, 1, 1, 1, 1, 1)))
+x |> table()
+# n
+x |>
+  fct_lump_n(3) |>
+  table()
+# prop
+x |>
+  fct_lump_prop(0.10) |>
+  table()
+# min
+x |>
+  fct_lump_min(5) |>
+  table()
+# lowfreq
+x |>
+  fct_lump_lowfreq() |>
+  table()
+```
+
+### fct_cross()
+
+该函数用于多个因子交叉生成新因子。具体得：值一一对应进行拼接；level交叉拼接。有三个参数：
+
+-   `...`：因子。
+-   `sep`：连接符。
+-   `keep_empty`：当新的level多于新的值时，是否保留没有值对应的level。
+
+```{r}
+fruit <- factor(c("apple", "kiwi", "apple", "apple"))
+colour <- factor(c("green", "green", "red", "green"))
+eaten <- c("yes", "no", "yes", "no")
+fct_cross(fruit, colour)
+fct_cross(fruit, colour, eaten)
+fct_cross(fruit, colour, keep_empty = TRUE)
+```
+
+### fct_drop()
+
+该函数用于丢弃未使用的level。参数`only`如果为规定，移除所有未使用的level；如果规定，只移除未使用且规定的level，使用的或未在规定范围内的不移除。
+
+```{r}
+f <- factor(c("a", "b"), levels = c("a", "b", "c"))
+f
+fct_drop(f)
+# Set only to restrict which levels to drop
+fct_drop(f, only = "a")
+fct_drop(f, only = "c")
+```
+
+### fct_expand()
+
+该函数用于追加新的level，自动忽略已存在的level。
+
+```{r}
+f <- factor(sample(letters[1:3], 20, replace = TRUE))
+f
+fct_expand(f, "d", "e", "f")
+fct_expand(f, letters[1:6])
+fct_expand(f, "Z", after = 0)
+
+```
+
+## 有序因子
+
+如上所述，使用`factor(x, ordered = TRUE)`可以构建有序因子，同时使用`ordered()`也可以构建。有序因子与因子只有在两个地方存在不同：
+
+-   在ggplot2绘图时，对于有序因子默认使用`scale_color_viridis()/scale_fill_viridis()`
+-   在构建模型时，默认无序使用`contr.treatment`生成`小_vs_中`,`中_vs_大`等虚拟变量，有序使用`contr.poly`进行多项式比较（`options("contrasts")`），更多比较解释见 https://debruine.github.io/faux/articles/contrasts.html。
+
+```{r}
+ordered(c("a", "b", "c"))
+```
