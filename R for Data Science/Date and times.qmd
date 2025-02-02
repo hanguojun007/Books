@@ -1,0 +1,31 @@
+---
+title: "Date and Times.qmd"
+author: "大番薯本薯"
+date: "2025-02-01"
+date-modified: "2025-02-01"
+format: "html"
+fig-width: 4
+fig-height: 4
+fig-align: center
+execute:
+  warning: false
+---
+```{r}
+#| echo: false
+
+source("_common.R")
+```
+
+# Date and times
+
+本章介绍 tidyverse 核心包 lubridate 对 `date and times` 的处理。
+
+```{r}
+#| message: false
+
+library(tidyverse)
+library(nycflights13)
+```
+
+## creating date/times
+
