@@ -18,3 +18,174 @@ source("_common.R")
 
 # Missing values
 
+前面讲过，缺失值`NA`在参与计算时会产生`NA`，使用`is.na()`检查缺失值。本章介绍tidyverse中的缺失值处理。
+
+```{r}
+#| message: false
+
+library(tidyverse)
+is.na(NA)
+```
+
+tidyverse 认为有三种缺失值类型：
+
+-   显式缺失值，即在数据中以`NA`形式展现出来。
+-   隐式缺失值，即在数据由长变宽时产生的缺失值。
+-   因子缺失值，即因子中的值不满足level时产生的缺失值。
+
+## 显式缺失值
+
+tidyverse 提供了一些填补或产生显式缺失值的函数。
+
+### tidyr::fill()
+
+`fill()`函数的使用方法类似`select()`，有一个额外参数`.direction`，控制填补时的方向。
+
+```{r}
+treatment <- tribble(
+  ~person, ~treatment, ~response,
+  "Derrick Whitmore", 1, 7,
+  NA, 2, NA,
+  NA, 3, 10,
+  "Katherine Burke", 1, 4
+)
+treatment |>
+  fill(everything(), .direction = "down")
+treatment |>
+  fill(everything(), .direction = "up")
+```
+
+### dplyr::coalesce() & dplyr::na_if()
+
+`coalesce()`对缺失值使用固定值填补，`na_if()`对固定值用`NA`替换
+
+```{r}
+x <- c(1, 4, 5, 7, NA, NA)
+coalesce(x, 0)
+x <- c(1, 4, 5, 7, -99)
+na_if(x, -99)
+```
+
+### NaN
+
+R 中存在另外一种缺失值——`NaN`（not a number）。它与`NA`在使用上基本没有差别，只能使用`is.nan()`进行判断是否是`NaN`，无法使用`is.na()`区分。
+
+```{r}
+x <- c(NA, NaN)
+x * 10
+x == 1
+is.na(x)
+is.nan(x)
+```
+
+`NaN`的产生方式通常是计算错误产生。
+
+```{r}
+0 / 0
+0 * Inf
+Inf - Inf
+sqrt(-1)
+```
+
+## 隐式缺失值
+
+下面是一个具体的隐式缺失值示例，仔细观察会发现2021年缺失了一个季度的数据。这就是显式与隐式的区别：隐式直接丢失了一个观察。下面介绍使用`pivot_wider()`，`complete()`将隐式转换为显式。
+
+```{r}
+stocks <- tibble(
+  year  = c(2020, 2020, 2020, 2020, 2021, 2021, 2021),
+  qtr   = c(1, 2, 3, 4, 2, 3, 4),
+  price = c(1.88, 0.59, 0.35, NA, 0.92, 0.17, 2.66)
+)
+```
+
+### tidyr::pivot_wider()
+
+```{r}
+stocks |>
+  pivot_wider(
+    names_from = qtr,
+    values_from = price
+  )
+```
+
+### tidyr::complete()
+
+```{r}
+stocks |>
+  complete(year, qtr)
+```
+
+`complete()`函数有两个额外参数：
+
+-   `fill`：填补缺失位置的值，默认是`NA`；填补多列时是list格式。
+-   `explicit`：控制显式缺失值是否能使用`fill`的值，默认`TRUE`。
+
+```{r}
+df <- tibble(
+  group = c(1:2, 1, 2),
+  item_id = c(1:2, 2, 3),
+  item_name = c("a", "a", "b", "b"),
+  value1 = c(1, NA, 3, 4),
+  value2 = 4:7
+)
+df
+df %>%
+  complete(
+    group,
+    nesting(item_id, item_name), # 将item_id, item_name视作整体
+    fill = list(value1 = 0, value2 = 99),
+    explicit = FALSE
+  )
+```
+
+## 因子缺失值
+
+因子缺失值的处理体现在不同函数在处理缺失值时是否丢弃因子中没有值的level上。
+
+```{r}
+health <- tibble(
+  name   = c("Ikaia", "Oletta", "Leriah", "Dashay", "Tresaun"),
+  smoker = factor(c("no", "no", "no", "no", "no"), levels = c("yes", "no")),
+  age    = c(34, 88, 75, 47, 56),
+)
+```
+
+### count()
+
+使用count时，默认会丢弃level。
+
+```{r}
+health |> count(smoker)
+health |> count(smoker, .drop = FALSE)
+```
+
+### scale_x_discrete()
+
+scale_x_discrete 同样默认丢弃level
+
+```{r}
+#| layout-ncol: 2
+
+ggplot(health, aes(x = smoker)) +
+  geom_bar() +
+  scale_x_discrete()
+
+ggplot(health, aes(x = smoker)) +
+  geom_bar() +
+  scale_x_discrete(drop = FALSE)
+```
+
+### group_by()
+
+```{r}
+health |>
+  group_by(smoker, .drop = FALSE) |>
+  summarize(
+    n = n(),
+    mean_age = mean(age),
+    min_age = min(age),
+    max_age = max(age),
+    sd_age = sd(age)
+  )
+```
