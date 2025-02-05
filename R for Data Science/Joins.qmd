@@ -1,0 +1,212 @@
+---
+title: "Joins.qmd"
+author: "大番薯本薯"
+date: "2025-02-04"
+date-modified: "2025-02-04"
+format: "html"
+fig-width: 4
+fig-height: 4
+fig-align: center
+execute:
+  warning: false
+---
+```{r}
+#| echo: false
+
+source("_common.R")
+```
+
+# Joins
+
+本章介绍tidyverse中处理数据框合并。
+
+多个数据框在合并时，需要指定一个或多个变量作为键（key），用于匹配两个数据框中的行。键分为主键（primary key）和外键（foreign key）。主键是唯一标识数据框中每一行的变量，外键是另一个数据框中的变量。要注意，能作为键的变量在数据框中原则上不能有重复项。
+
+```{r}
+#| message: false
+
+library(tidyverse)
+```
+
+dplyr 包提供的`*_join()`函数，可以分为两大类：
+
+-   变异连接（mutating joins）：向一个数据框中添加新变量。
+    -   `left_join()`
+    -   `right_join()`
+    -   `inner_join()`
+    -   `full_join()`
+-   过滤连接（filtering joins）：根据另一个数据框中的观测值来过滤一个数据框中的观测值。
+    -   `semi_join()`
+    -   `anti_join()`
+
+dplyr 包提供下面五种类型的连接：
+
+-   等长连接（equality join）
+-   不等连接（inequality join）
+-   就近连接（rolling join）
+-   范围连接（overlap join）
+-   交叉连接（cross join）
+
+除交叉连接使用`cross_join()`外，其余都使用`join_by()`函数设置。等长与不等连接使用简单的expr——`==`,`>`,`>=`,`<`,`<=`；就近连接再套一层`closest(expr)`；范围连接使用`between()`,`within()`,`overlaps()`。
+
+## 变异连接
+
+### left_join()
+
+变异连接中的四个函数使用方法基本一致，其不同点在于键的集合处理上，如下图。我们以`left_join()`为切入点对参数作详细说明。
+
+![four joins](image/venn.png)
+
+函数`left_join()`有11个参数：
+
+-   `x`：数据框`x`。
+-   `y`：数据框`y`。
+-   `by`：键连接方式，由`join_by()`构造。
+    -   如果不提供，默认使用`x`，`y`的所有变量，自行检查合适的键，并生成提示信息。
+    -   `join_by(a == b)`函数中如果不声明变量所属，默认左边是`x$a`，右边是`y$b`。
+    -   使用多个键时，`join_by(a == b, c == d)`。
+    -   `join_by()`中可以执行不等式连接。
+    -   `jonin_by(a == b)`等价于原来的`c("a", "b")`。
+-   `copy`：默认`FALSE`，判断是否将不同源的数据复制到同源进行处理（源指得是远程，本地等）。
+-   `suffix`：对`x`,`y`中重复变量添加的后缀，要求长度为2的字符串向量，默认`c(".x", ".y")`。
+-   `...`：待传递的其他参数。
+-   `keep`：是否将`y`中的键保留，默认为`NULL`。为`NULL`时，等长连接不保留，不等连接保留；为`TRUE`时，保留；为`FALSE`时，不保留。
+-   `na_matches`：默认`na`，将`x`中的`NA`(`NaN`)与`y`中的`NA`(`NaN`)视作等价可以匹配；`never`相反。
+-   `multiple`：当`x`匹配多个`y`中键时的处理方式：
+    -   "all"：默认值，返回所有匹配行。
+    -   "any"：返回任意一个。
+    -   "first"：返回第一个。
+    -   "any"：返回最后一个。
+-   `unmatched`：当`x`或`y`中的键存在不匹配时的处理方式（`full_join()`函数不包括次参数）：
+    -   "drop"：丢弃。
+    -   "error"：报错。
+-   `relationship`：`x`，`y`中键的处理模式：
+    -   NULL：默认值，自行检测出现了什么模式。
+    -   "one-to-one"：`x`与`y`中的键一一对应。
+    -   "one-to-many"：`x`匹配多个`y`。
+    -   "many-to-one"：`y`匹配多个`x`。
+    -   "many-to-many"：没有匹配规则。
+
+```{r}
+library(dplyr)
+
+# 示例数据
+df1 <- tibble(
+  time = c(1, 2, 3, NaN),
+  value = c("W", "X", "Y", "Z")
+)
+df2 <- tibble(
+  time = c(1, 2, NA, NaN),
+  value = c("A", "B", "C", "D")
+)
+
+left_join(
+  df1, df2,
+  by = join_by(time == time),
+  suffix = c("_x", "-y"),
+  na_matches = "never",
+  unmatched = "drop"
+)
+```
+
+### 原理图
+
+下面是四个函数在运行时的原理示意图。
+
+![left_join](image/left.png)
+![right_join](image/right.png)
+![inner_join](image/inner.png)
+![full_join](image/full.png)
+
+## 过滤连接
+
+`semi_join()`：保留`x`键在`y`键中的行。
+`anti_join()`：保留`x`键不在`y`键中的行。
+
+```{r}
+semi_join(df1, df2, by = join_by(time == time))
+anti_join(df1, df2, by = join_by(time == time))
+```
+
+其原理图如下：
+
+![semi_join](image/semi.png)
+![anti_join](image/anti.png)
+
+## 连接类型
+
+如上所述，连接类型由`join_by()`和`cross_join()`函数决定。我们先介绍`cross_join()`，再详细介绍`join_by()`。
+
+### cross_join()
+
+`cross_join()`函数生成一个`nrow(x) * nrow(y)`的数据框，不接受`by`参数。
+
+![cross_join](image/cross.png)
+
+```{r}
+cross_join(df1, df2)
+```
+
+### join_by()
+
+等长连接的使用方法如上所述，使用`==`连接符。其他连接主要用于时间序列分析和基因组学等**有序键**数据框。
+
+### 不等连接（inequality join）
+
+不等连接使用的连接符`>=`,`>`,`<=`,`<`具有不同的意义，如下示例，df2中找不到是的df1中`1`大于的值，所以生成了`NA`；df1中的`2`匹配到的行有1行，`3`有2行。
+
+```{r}
+left_join(df1, df2, by = join_by(time > time))
+```
+
+### 就近连接（rolling join）
+
+就近连接是一种特殊的不等连接，使用`closest(expr)`包裹连接符表达式。其含义是选择最接近的一行，如下示例，df1中的`3`只匹配df2中的`2`，丢掉了`1`。
+
+```{r}
+left_join(df1, df2, by = join_by(closest(time > time)))
+```
+
+### 范围连接（overlap join）
+
+范围连接的作用是将两个数据框中的行按照某个范围进行匹配，使用三个函数包裹表达式。
+
+#### between()
+
+`between(x, y_lower, y_upper, ..., bounds = "[]")`表示`x∈[y_lower, y_upper]`。`bounds`可以是`"[]"`,`"[)"`,`"(]"`,`"()"`。
+
+```{r}
+segments <- tibble(
+  segment_id = 1:4,
+  chromosome = c("chr1", "chr2", "chr2", "chr1"),
+  start = c(140, 210, 380, 230),
+  end = c(150, 240, 415, 280)
+)
+reference <- tibble(
+  reference_id = 1:4,
+  chromosome = c("chr1", "chr1", "chr2", "chr2"),
+  start = c(100, 200, 300, 415),
+  end = c(150, 250, 399, 450)
+)
+
+by <- join_by(chromosome, between(start, start, end))
+full_join(segments, reference, by)
+```
+
+#### within()
+
+`within(x_lower, x_upper, y_lower, y_upper)`表示`[x_lower, x_upper]`被`[y_lower, y_upper]⁠`囊括包含，等价于`x_lower >= y_lower, x_upper <= y_upper`。
+
+```{r}
+by <- join_by(chromosome, within(x$start, x$end, y$start, y$end))
+inner_join(segments, reference, by)
+```
+
+#### overlaps()
+
+`overlaps(x_lower, x_upper, y_lower, y_upper, ..., bounds = "[]")`表示任何`[x_lower, x_upper]⁠`与`[y_lower, y_upper]⁠`有交集的行，`bounds`同上。
+
+```{r}
+by <- join_by(chromosome, overlaps(x$start, x$end, y$start, y$end, bounds = "[)"))
+full_join(segments, reference, by)
+```
