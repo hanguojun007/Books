@@ -10,15 +10,16 @@ fig-align: center
 execute:
   warning: false
 ---
+
 ```{r}
 #| echo: false
 
 source("_common.R")
 ```
 
-# Date and times
+# 日期与时间
 
-本章介绍 tidyverse 核心包 lubridate 对 `date and times` 的处理。
+本章介绍 tidyverse 核心包 lubridate 对日期与时间的处理。
 
 ```{r}
 #| message: false
@@ -27,5 +28,105 @@ library(tidyverse)
 library(nycflights13)
 ```
 
-## creating date/times
+## R base 中日期时间基础知识
 
+### ISO0861 标准
+
+R 使用国际标准**ISO8601**存储日期时间：
+
+-   年月日之间使用`-`连接。
+-   时分秒之间使用`:`连接。
+-   日期与时间之间使用空格或`T`连接。
+-   时间使用24小时制。
+
+例如2025年2月9日下午4时29分49秒写作`2025-02-09 16:29:49`。
+
+获取当前日期及时间：
+
+```{r}
+today()
+now()
+DateTime <- as.POSIXct("2025-02-09 16:29:49")
+```
+
+### 格式化
+
+R base 提供了`format.POSIXct()`（可以简写为`format()`）对日期时间进行格式化。函数有四个参数：
+
+-   `x`：时间字符串。
+-   `tz`：时区，`""`代表本地时区，`"GMT"`等价于`UTC`，无效的时区参数会自动转换为`UTC`并生成警告。
+-   `format`：格式化参数，例如\`"%Y-%m-%d %H:%M%:%S"。
+-   `usetz`：是否使用时区，默认`FALSE`。
+
+下表是R 中对日期时间进行 format 格式化的总结：
+
+| Type  | Code   | Meaning                        | Example         |
+|-------|--------|--------------------------------|-----------------|
+| Year  | `%Y`   | 4 digit year                   | 2021            |
+|       | `%y%`  | 2 digit year                   | 21              |
+| Month | `%m%`  | Number                         | 2               |
+|       | `%b%`  | Abbreviated name               | Feb             |
+|       | `%B%`  | DUll name                      | February        |
+| Day   | `%d%`  | One or two digits              | 2               |
+|       | `%e%`  | Two digits                     | 02              |
+| Time  | `%H%`  | 24-hour hour                   | 13              |
+|       | `%I%`  | 12-hour hour                   | 1               |
+|       | `%p%`  | AM/PM                          | pm              |
+|       | `%M%`  | Minutes                        | 35              |
+|       | `%S%`  | Seconds                        | 42              |
+|       | `%OS%` | Seconds with decimal component | 45.35           |
+|       | `%Z%`  | Time zone name                 | America/Chicago |
+|       | `%z%`  | Offset from UTC                | +800            |
+| Other | `%.%`  | Skip one non-digit             | :               |
+|       | `%*%`  | Skip any number of non-digits  |                 |
+
+```{r}
+format.POSIXct(DateTime)33333
+format(DateTime, usetz = TRUE)
+format(DateTime, format = "%y-%b-%d %I%p:%M:%OS")
+```
+
+在tidyverse中有三种`date/time`：
+
+-   `date`：日期，tibble中标记为`<date>`。
+-   `time`：时间，tibble中标记为`<time>`。
+-   `date-time`：日期-时间，tibble中标记为`<dttm>`。
+
+在 base R 中不提供`time`类型，可以使用**hms**包生成。
+
+## creating date/time
+
+时间类型的数据可以从以下四个方面获取：
+
+-   读取数据
+-   字符串转换
+-   字符串拼接
+
+### 读取数据
+
+readr 会自动识别 ISO0861类型的日期时间，在读取时可通过`col_date()`函数设置日期时间格式。
+
+```{r}
+csv <- "
+  date,datetime
+  01/02/15,2022-01-02 05:12
+"
+read_csv(csv)
+read_csv(csv, col_types = cols(date = col_date("%m/%d/%y")))
+read_csv(csv, col_types = cols(date = col_date("%d/%m/%y")))
+read_csv(csv, col_types = cols(date = col_date("%y/%m/%d")))
+```
+
+### 字符串转换
+
+`lubridate`包提供了由`y`,`m`,`d`,`h`,`m`,`s`组成的函数用来解析时间字符串
+
+```{r}
+ymd("2017-01-31")
+mdy("January 31st, 2017")
+dmy("31-Jan-2017")
+ymd_hms("2017-01-31 20:11:59")
+mdy_hm("01/31/2017 08:01")
+```
+
+###55555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555
