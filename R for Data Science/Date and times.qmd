@@ -46,7 +46,6 @@ R 使用国际标准**ISO8601**存储日期时间：
 ```{r}
 today()
 now()
-DateTime <- as.POSIXct("2025-02-09 16:29:49")
 ```
 
 ### 格式化
@@ -58,7 +57,7 @@ R base 提供了`format.POSIXct()`（可以简写为`format()`）对日期时间
 -   `format`：格式化参数，例如\`"%Y-%m-%d %H:%M%:%S"。
 -   `usetz`：是否使用时区，默认`FALSE`。
 
-下表是R 中对日期时间进行 format 格式化的总结：
+下表是 R 中对日期时间进行 format 格式化的总结：
 
 | Type  | Code   | Meaning                        | Example         |
 |-------|--------|--------------------------------|-----------------|
@@ -81,7 +80,8 @@ R base 提供了`format.POSIXct()`（可以简写为`format()`）对日期时间
 |       | `%*%`  | Skip any number of non-digits  |                 |
 
 ```{r}
-format.POSIXct(DateTime)33333
+DateTime <- as.POSIXct("2025-02-09 16:29:49")
+format.POSIXct(DateTime)
 format(DateTime, usetz = TRUE)
 format(DateTime, format = "%y-%b-%d %I%p:%M:%OS")
 ```
@@ -94,17 +94,18 @@ format(DateTime, format = "%y-%b-%d %I%p:%M:%OS")
 
 在 base R 中不提供`time`类型，可以使用**hms**包生成。
 
-## creating date/time
+## 生成日期时间
 
 时间类型的数据可以从以下四个方面获取：
 
 -   读取数据
 -   字符串转换
--   字符串拼接
+-   日期时间字符串拼接
+-   从已有日期时间中获取
 
 ### 读取数据
 
-readr 会自动识别 ISO0861类型的日期时间，在读取时可通过`col_date()`函数设置日期时间格式。
+readr 会自动识别 ISO0861 类型的日期时间，在读取时可通过`col_date()`函数设置日期时间格式。
 
 ```{r}
 csv <- "
@@ -119,14 +120,201 @@ read_csv(csv, col_types = cols(date = col_date("%y/%m/%d")))
 
 ### 字符串转换
 
-`lubridate`包提供了由`y`,`m`,`d`,`h`,`m`,`s`组成的函数用来解析时间字符串
+`lubridate`包提供了由`y`,`m`,`d`,`h`,`m`,`s`组成的函数用来解析时间字符串，无法解析时返回`NA`，并报警。
 
 ```{r}
 ymd("2017-01-31")
+ymd(c("2010-10-10", "bananas"))
 mdy("January 31st, 2017")
 dmy("31-Jan-2017")
 ymd_hms("2017-01-31 20:11:59")
 mdy_hm("01/31/2017 08:01")
 ```
 
-###55555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555
+通常上述函数足够应对很多格式的数据，但是无法解析带有`AM/PM`字样的时间，需要使用`parse_date_time()`解析。
+
+```{r}
+mdy("January 1, 2010")
+ymd("2015-Mar-07")
+dmy("06-Jun-2017")
+mdy(c("August 19 (2015)", "July 1 (2015)"))
+mdy("12/30/14")
+hm("1705")
+parse_date_time("11:15:10.12 PM", orders = "I:M:S p")
+```
+
+### 日期时间字符串拼接
+
+有时年月日时分秒分别在一个向量中，拼接之后转换似乎太麻烦，可以直接使用`make_date()`或`make_datetime()`。
+
+```{r}
+flights |>
+  select(year, month, day, hour, minute) |>
+  mutate(departure = make_datetime(year, month, day, hour, minute))
+```
+
+### 从已有日期时间中获取
+
+使用`as_datetime()`或`as_date()`进行日期与时间的转换。
+
+```{r}
+as_datetime(today())
+as_date(now())
+```
+
+也可以作用于数字，日期按照1等于1天，时间按照1等于1秒，从1970-01-01开始计算。
+
+```{r}
+as_datetime(60 * 60 * 10)
+as_date(365 * 10 + 2)
+```
+
+## 解析日期时间
+
+### 解析
+
+下面介绍一些函数对日期时间进行解析：
+
+-   `year()`：日期中的年。
+-   `month()`：日期中的月，使用`label`参数设置是否转换为文字，`abbr`参数设置是否简写。
+-   `yday()`：该年第几天。
+-   `mday()`：该月第几天。
+-   `wday()`：该周第几天。
+-   `hour()`：时间中的小时。
+-   `minute()`：时间中的分。
+-   `secend()`：时间中的秒。
+
+```{r}
+datetime <- ymd_hms("2026-07-08 12:34:56")
+
+year(datetime)
+month(datetime, label = TRUE, abbr = FALSE)
+yday(datetime)
+mday(datetime)
+wday(datetime)
+hour(datetime)
+```
+
+### 修改
+
+上述函数不仅可以用来解析，也可以用来修改
+
+```{r}
+datetime <- ymd_hms("2026-07-08 12:34:56")
+
+year(datetime) <- 2030
+datetime
+
+month(datetime) <- 01
+datetime
+
+hour(datetime) <- hour(datetime) + 1
+datetime
+
+```
+
+除此之外，还可以使用`update()`进行多个地方的修改（`update`函数类似`getCall`）。
+
+```{r}
+update(datetime, year = 2030, month = 2, mday = 2, hour = 2)
+```
+
+### 近似
+
+lubridate 提供了三个函数对日期时间根据单位进行近似。
+
+-   `round_date()`：四舍五入。
+-   `floor_date()`：向下取整。
+-   `ceiling_date()`：向上取整。
+
+```{r}
+x <- ymd_hms("2009-08-03 12:01:59.23")
+round_date(x, ".5s")
+round_date(x, "5 mins")
+round_date(x, "year")
+floor_date(x, ".5s")
+floor_date(x, "minute")
+floor_date(x, "hour")
+ceiling_date(x, ".5 sec") # 默认不显示秒的小数位。
+format(ceiling_date(x, ".5 sec"), "%Y-%m-%d %H:%M:%OS3")
+ceiling_date(x, "second")
+ceiling_date(x, "minute")
+ceiling_date(x, "5 mins")
+ceiling_date(x, "hour")
+```
+
+
+## 时间段
+
+lubridate 包对时间段给出了三种划分：
+
+-   duration：通常单位是秒，给出时间段具体有多少秒，通常用于物理计算。
+-   period：使用人类常见单位，比如周，月。
+-   interval：给定时间段的开始与结束。
+
+### duration
+
+lubridate 包中的`duration()`函数用来生成一个以参数`units`控制单位的时间跨度。同时提供额外函数，精确到秒，给出每年`dyears()`，每月`dmonths()`，每周`dweeks()`，每天`ddays()`，每时`dhours()`，每分`dminutes()`，每秒`dseconds()`，每毫秒`dmilliseconds()`，每微秒`dmicroseconds()`，每纳秒`dnanoseconds()`，每皮秒`dpicoseconds()`有多少秒。
+
+```{r}
+duration(1, units = "year")
+dyears(1)
+ddays(1)
+dpicoseconds(1)
+```
+
+上述函数可以进行四则运行计算时间
+
+```{r}
+2 * dyears(1)
+dyears(1) + dweeks(12) + dhours(15)
+```
+
+### periods
+
+lubridate 包中`period()`函数同样生成一个以参数`units`控制单位的时间跨度。同时提供额外函数一年`years()`，一个月`base::months()`，一周`weeks()`，一天`days()`，一小时`hours()`，一分钟`minutes()`，一秒`secends()`，一毫秒`milliseconds()`，一微秒  `microseconds()`，一纳秒`nanoseconds(x = 1)`，一皮秒`picoseconds(x = 1)`。
+
+```{r}
+years(1)
+months(1)
+weeks(1)
+days(7)
+hours(c(12, 24))
+```
+
+同样可以进行四则运行
+
+```{r}
+10 * (months(6) + days(1))
+#> [1] "60m 10d 0H 0M 0S"
+days(50) + hours(25) + minutes(2)
+#> [1] "50d 25H 2M 0S"
+```
+
+period 与 duration 不同点在于：duration 的时间跨度是固定的，有多少秒就是多少秒；period 的时间跨度不是固定的，与不同日期时间计算跨度不同。
+
+```{r}
+# 闰年
+ymd("2024-01-01") + dyears(1)
+ymd("2024-01-01") + years(1)
+```
+
+### interval
+
+```{r}
+y2023 <- ymd("2023-01-01") %--% ymd("2024-01-01")
+y2024 <- ymd("2024-01-01") %--% ymd("2025-01-01")
+
+y2023
+y2024
+
+```
+
+
+
+
+```{r}
+ymd(c("2010-10-10", "bananas"))
+
+
+```
