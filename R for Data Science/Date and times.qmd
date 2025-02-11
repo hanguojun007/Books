@@ -249,8 +249,8 @@ ceiling_date(x, "hour")
 lubridate 包对时间段给出了三种划分：
 
 -   duration：通常单位是秒，给出时间段具体有多少秒，通常用于物理计算。
--   period：使用人类常见单位，比如周，月。
--   interval：给定时间段的开始与结束。
+-   period：使用人类常见单位，比如周，月，时间段不固定。
+-   interval：给定具有固定开始与结束的时间段。
 
 ### duration
 
@@ -301,20 +301,67 @@ ymd("2024-01-01") + years(1)
 
 ### interval
 
+使用`dyears(1) / ddays(1)`或`years(1) / days(1)`计算一年，你会发现结果都是365.25，无法准确地给出某一年有多少天。
+
+```{r}
+dyears(1) / ddays(1)
+years(1) / days(1)
+```
+
+使用`start %--% end`格式的interval即可准确的记录一年有多少天。
+
 ```{r}
 y2023 <- ymd("2023-01-01") %--% ymd("2024-01-01")
 y2024 <- ymd("2024-01-01") %--% ymd("2025-01-01")
 
-y2023
-y2024
-
+y2023 / days(1)
+y2024 / days(1)
 ```
 
+## 时区
 
-
+R 采用的是IANA（https://www.iana.org/time-zones）数据库中的时区，格式为`{area}/{location}`。可以使用`OlsonNames()`进行查看。
 
 ```{r}
-ymd(c("2010-10-10", "bananas"))
+Sys.timezone()
+length(OlsonNames())
+head(OlsonNames())
+```
 
+时区的作用用来显示当地的时间，计算实际背后代表的数值时要考虑时区，下面三个时区的时间本质是相等的。
 
+```{r}
+x1 <- ymd_hms("2024-06-01 12:00:00", tz = "America/New_York")
+x1
+
+x2 <- ymd_hms("2024-06-01 18:00:00", tz = "Europe/Copenhagen")
+x2
+
+x3 <- ymd_hms("2024-06-02 04:00:00", tz = "Pacific/Auckland")
+x3
+
+x1 - x2
+x1 - x3
+```
+
+对日期时间的操作会丢掉时区，例如使用`c()`。
+
+```{r}
+x4 <- c(x1, x2, x3)
+x4
+```
+
+对时区的更改有两个函数：
+
+-   `with_tz()`：不更改本质时间，只是换一种显示方式。
+-   `force_tz()`：更改本质时间，因为显示的时间正确但时区错误，用来修改错误。
+
+```{r}
+x4a <- with_tz(x4, tzone = "Australia/Lord_Howe")
+x4a
+x4a - x4
+
+x4b <- force_tz(x4, tzone = "Australia/Lord_Howe")
+x4b
+x4b - x4
 ```
