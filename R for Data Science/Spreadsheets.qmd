@@ -1,0 +1,175 @@
+---
+title: "Spreadsheets.qmd"
+author: "大番薯本薯"
+date: "2025-02-11"
+date-modified: "2025-02-11"
+format: "html"
+fig-width: 4
+fig-height: 4
+fig-align: center
+execute:
+  warning: false
+---
+
+```{r}
+#| echo: false
+
+source("_common.R")
+```
+
+# Spreadsheets
+
+电子表格有两种：Excel、Google Sheet。本章介绍使用`readxl`对Excel电子表格进行读取与`writexl`进行简单写入。对于Google Sheet，知道使用`googlesheets4`即可。
+
+```{r}
+#| message: false
+
+library(readxl)
+library(tidyverse)
+library(writexl)
+```
+
+readxl 提供三个读取Excel文件的函数：
+
+-   `read_xls()`：读取`xls`格式的文件。
+-   `read_xlsx()`：读取`xlsx`格式的文件。
+-   `read_excel()`：读取`xls`或`xlsx`格式的文件。
+
+三个函数的使用方法相同，下面我们详细介绍`read_excel()`。
+
+`read_excel()`函数有12个参数：
+
+-   `path`：文件路径。
+-   `sheet`：提供sheet名或sheet顺序号，若不提供默认读取第一个sheet；当range参数提供sheet名时不考虑该参数。
+-   `range`：使用Excel-style range获取读取范围，格式为`range = "A1:D4"`或`range = "R1C1:R4C4"`，也可以传递sheet名`range = "foofy!A1:D4"`。
+-   `col_names`：是否使用第一行作为列名，默认为`TRUE`，也可提供等列长的向量作为新的列名。
+-   `col_types`：列类型，默认为`NULL`自行猜测；也可提供长度为1或等列长的向量。列类型有`logical`,`numeric`,`date`,`text`,`list`。
+-   `na`：可视作为`NA`的字符，默认为`""`。
+-   `trim_ws`：是否去除cell中前后空格，默认为`TRUE`。
+-   `skip`：跳过几行进行读取，使用range时忽略。
+-   `n_max`：最大读到多少行，默认为`Inf`;当出现空白行时停止；使用range时忽略。
+-   `guess_max`：使用多少行进行列类型的猜测，默认为`min(1000, n_max)`。
+-   `progress`：是否在终端显示一个进程bar。
+-   `.name_repair`：列名修复规则。
+
+
+## 示例
+
+下面我们以三个示例数据进行说明。
+
+### students
+
+读取students示例数据。示例数据下载：https://docs.google.com/spreadsheets/d/1V1nPp1tzOuutXFLb3G9Eyxi3qxeEhnOXUzL5_BcCQ0w/
+
+```{r}
+read_excel("data/students.xlsx")
+```
+
+我们发现列名是不统一的格式，使用`col_names`参数设置新的列名
+
+```{r}
+read_excel(
+  "data/students.xlsx",
+  col_names = c("student_id", "full_name", "favourite_food", "meal_plan", "age")
+)
+```
+
+当使用`col_names`参数设置新的列名，也即意味着`col_names = FALSE`，使用`skip = 1`跳过第一行。
+
+```{r}
+read_excel(
+  "data/students.xlsx",
+  col_names = c("student_id", "full_name", "favourite_food", "meal_plan", "age"),
+  skip = 1
+)
+```
+
+仔细观察`favourite_food`列的`N/A`不能被准确的识别为`NA`，所以需要额外的设置`na = c("", "N/A")`
+
+```{r}
+read_excel(
+  "data/students.xlsx",
+  col_names = c("student_id", "full_name", "favourite_food", "meal_plan", "age"),
+  skip = 1,
+  na = c("", "N/A")
+)
+```
+
+接着会发现`age`列有一行为`five`，这导致了本应是`dbl`类型的列最终变为了`chr`。简单做法就是直接修改；但当数据较多时，则需要编程处理。这里我们先设定列类型，然后进行判断将`five`转换为`"5"`，最后解析。
+
+```{r}
+students <- read_excel(
+  "data/students.xlsx",
+  col_names = c("student_id", "full_name", "favourite_food", "meal_plan", "age"),
+  skip = 1,
+  na = c("", "N/A"),
+  col_types = c("numeric", "text", "text", "text", "text")
+)
+
+students <- students |>
+  mutate(
+    age = if_else(age == "five", "5", age),
+    age = parse_number(age)
+  )
+
+students
+```
+
+### penguins
+
+penguins文件有三个sheet，当我们知道sheet名或顺序时可使用参数`sheet`。示例数据下载：https://docs.google.com/spreadsheets/d/1aFu8lnD_g0yjF5O-K6SFgSEWiHPpgvFCF0NY9D6LXnY/。
+
+```{r}
+read_excel("data/penguins.xlsx", sheet = "Torgersen Island")
+```
+
+当我们不知道sheet名，或太多时，可以使用`excel_sheets()`函数获取sheet名。
+
+```{r}
+excel_sheets("data/penguins.xlsx")
+```
+
+### deaths
+
+deaths 文件下载地址：https://github.com/tidyverse/readxl/blob/main/inst/extdata/deaths.xlsx。其内容如下：
+
+![](image/excel.png)
+
+当我们只想读取红框中的内容时，有两种策略：
+
+```{r}
+# skip & n_max
+read_excel(
+  "data/deaths.xlsx",
+  skip = 4,
+  n_max = 10 # 从跳过的行开始计算
+)
+
+# range
+read_excel(
+  "data/deaths.xlsx",
+  range = "A5:F5"
+)
+```
+
+## 数据类型
+
+在读取文本文件时，文本文件中的任何数据其本质都是字符串。但在excel电子表格中，有四种类型的数据：
+
+-   boolean值：`TRUE`,`FALSE`,`NA`
+-   number：`10`,`12`
+-   datetime：`11/1/21`或`11/1/21 3:00 PM`
+-   text：`"ten"`
+
+## 写入
+
+`writexl`包的`write_xlsx()`函数只能简单的写入数据，更复杂的格式设置推荐`openxlsx`包。
+
+```{r}
+bake_sale <- tibble(
+  item     = factor(c("brownie", "cupcake", "cookie")),
+  quantity = c(10, 5, 8)
+)
+write_xlsx(bake_sale, path = "data/bake-sale.xlsx")
+```
+
