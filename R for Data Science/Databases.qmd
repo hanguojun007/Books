@@ -1,0 +1,175 @@
+---
+title: "Databases.qmd"
+author: "大番薯本薯"
+date: "2025-02-16"
+date-modified: "2025-02-16"
+format: "html"
+fig-width: 4
+fig-height: 4
+fig-align: center
+execute:
+  warning: false
+---
+
+```{r}
+#| echo: false
+
+source("_common.R")
+```
+# Databases
+
+本章介绍使用 DBI & dbplyr 生成SQL语句与数据库进行交互。
+
+```{r}
+#| message: false
+
+library(DBI)
+library(dbplyr)
+library(tidyverse)
+```
+
+## SQL & 数据库
+
+SQL 是一种由国际标准化组织制定的用于管理关系数据库的结构化查询语言。SQL 拥有查询、获取、修改、插入、删除数据等功能。常见的如MySQL，Microsoft Access等数据库管理系统，使用方式是建立在 SQL 标准之上的。
+
+关系数据库可以简单理解为一个Excel表格文件，文件中由多个表，如sheet；每个表由一列列数据组成，类似于 R 中的data.frame。
+
+数据库中的表与data.frame有三大不同点：
+
+-   数据库中的表存在于磁盘中，data.frame存在于内存中；也即对数据库中的数据进行插入修改等操作时无需将所有数据都加载到内存中。
+-   数据库中的表都有`index`，用来加速数据的访问。
+-   绝大多数据库按行存放数据，data.frame按列存放数据。
+
+数据库的运行方式有三种：
+
+-   **Client-server**：一台远程连接的主机。
+-   **Cloud**：类似于上面，但是在云上。
+-   **In-process**：本地主机，用来存储大型数据，例如SQLite，duckdb。
+
+在R中常见的Org.db包就是由SQLite构成。
+
+更多关于SQL的语法及使用参考：https://www.runoob.com/sql/sql-tutorial.html
+
+## 连接数据库
+
+与数据库进行交互的第一步是建立R与数据库之间的联系。建立联系需要一对R包：
+
+-   DBI（**d**ata**b**ase **i**nterface）包：提供与数据库进行交互的类方法。
+-   数据库类型对应的R包，如服务MySQL的RMariaDB：作用 是将上述类方法转换为类型对应的函数。
+
+正如前面提到的：不同类型的数据库管理系统都是基于SQL标准，DBI包就类似于一种标准。如果没有相对应得R包，可以尝试使用`odbc`包
+
+如下面示例，使用`DBI::dbConnect()`函数进行连接，该参数得第一个参数是数据库类型对应的实例，后面的参数是建立连接时需要的参数，具体参数可以查阅各自实例函数，如`RMariaDB::MariaDB()`。
+
+```{r}
+#| eval: false
+
+con <- DBI::dbConnect(
+  RMariaDB::MariaDB(),
+  username = "foo"
+)
+con <- DBI::dbConnect(
+  RPostgres::Postgres(),
+  hostname = "databases.mycompany.com",
+  port = 1234
+)
+```
+
+### 使用本地数据库
+
+上面的代码在实际运行时会报错，因为根本不存在这样的数据库。下面介绍使用 duckdb 包创建本地数据库，并作为后续的示例。你不用担心是否会对使用其他类型数据库造成影响，事实上只有连接时的不同，其余使用方法都相同。
+
+`duckdb::duckdb()`使用方法如下，提供参数`dbdir`时，可以生成一个实际的数据库；不提供时退出R即可删除临时数据库。
+
+```{r}
+con <- DBI::dbConnect(duckdb::duckdb(), dbdir = "duckdb")
+```
+
+## 创建数据库
+
+### 向数据库中添加表
+
+如上，数据在数据库中以表的形式储存。向数据库中添加表是创建数据库的第一步。使用`DBI::dbWriteTable()`函数添加表格。
+
+该函数的主要参数有三个：
+
+-   `conn`：数据库连接。
+-   `name`：表格名。
+-   `value`：data.frame。
+
+```{r}
+dbWriteTable(con, "mpg", ggplot2::mpg)
+dbWriteTable(con, "diamonds", ggplot2::diamonds)
+```
+
+duckdb 包同时提供了两个无需读取数据，直接从文件将数据添加到数据库的函数。
+
+```{r}
+duckdb_read_csv()
+duckdb_register_arrow()
+```
+
+## 数据库交互
+
+### DBI basics
+
+DBI 提供了一些简单的交互函数和底层的执行SQL语言函数：
+
+-   `dbListTables()`：列出数据库中的表格。
+-   `dbReadTable()`：读取数据库中的表格。
+-   `dbGetQuery()`：执行SQL语言。
+
+```{r}
+dbListTables(con)
+
+con |>
+  dbReadTable("diamonds") |>
+  as_tibble()
+
+sql <- "
+  SELECT carat, cut, clarity, color, price
+  FROM diamonds
+  WHERE price > 15000
+"
+as_tibble(dbGetQuery(con, sql))
+```
+
+### dbplyr basics
+
+dbplyr 顾名思义，是 dplyr 包针对 database 的衍生包。该包的主要功能是将 dplyr 包中的函数转换为 SQL 语言。
+
+使用 dbplyr 的第一步是使用`dplyr::tbl()`函数创建一个衍生包对应的实例，例如我们创建一个数据库中`diamonds`表的实例，实例的显示结果通常只有前几行。
+
+```{r}
+diamonds_db <- tbl(con, "diamonds")
+diamonds_db
+```
+
+由于数据库的层级关系，可以使用`I()`指定某个表。
+
+```{r}
+#| eval: false
+
+I("my_schema.my_table")
+I("my_catalog.my_schema.my_table")
+I("my_schema.my_table")
+```
+
+`tbl()`创建的实例具有惰性，使用`dplyr`包的函数时并不会执行，而只是记录。使用`show_query()`来显示转换的 SQL 语言；使用`collect()`执行`dbGetQuery()`来获取数据。
+
+```{r}
+big_diamonds_db <- diamonds_db |>
+  filter(price > 15000) |>
+  select(carat:clarity, price)
+
+big_diamonds_db
+
+big_diamonds_db |>
+  show_query()
+
+big_diamonds_db |>
+  collect()
+```
+
+## dbplyr 转换机制
+
