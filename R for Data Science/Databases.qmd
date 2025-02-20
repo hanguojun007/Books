@@ -16,6 +16,7 @@ execute:
 
 source("_common.R")
 ```
+
 # Databases
 
 本章介绍使用 DBI & dbplyr 生成SQL语句与数据库进行交互。
@@ -77,7 +78,7 @@ con <- DBI::dbConnect(
 
 ### 使用本地数据库
 
-上面的代码在实际运行时会报错，因为根本不存在这样的数据库。下面介绍使用 duckdb 包创建本地数据库，并作为后续的示例。你不用担心是否会对使用其他类型数据库造成影响，事实上只有连接时的不同，其余使用方法都相同。
+上面的代码在实际运行时会报错，因为根本不存在这样的数据库。下面介绍使用 duckdb 包创建本地数据库，并作为后续的示例。不同数据库只有连接时不同，其余使用方法都相同。
 
 `duckdb::duckdb()`使用方法如下，提供参数`dbdir`时，可以生成一个实际的数据库；不提供时退出R即可删除临时数据库。
 
@@ -105,6 +106,7 @@ dbWriteTable(con, "diamonds", ggplot2::diamonds)
 duckdb 包同时提供了两个无需读取数据，直接从文件将数据添加到数据库的函数。
 
 ```{r}
+#| eval: false
 duckdb_read_csv()
 duckdb_register_arrow()
 ```
@@ -173,3 +175,151 @@ big_diamonds_db |>
 
 ## dbplyr 转换机制
 
+SQL 的顶层声明包括：定义新表——`CREATE`，添加数据——`INSERT`，提取数据——`SELECT`等。dbplyr 主要使用过`SELECT`。dbplyr 包对不同类型数据库进行转换时会注意规避相关关键字，使用`` ` ``进行转义。
+
+```{r}
+dbplyr::copy_nycflights13(con)
+flights <- tbl(con, "flights")
+planes <- tbl(con, "planes")
+```
+
+### SELECT
+
+使用`SELECT`的声明被称为**queries**，每个query必须包含`SELECT`和`FROM`。
+
+```{r}
+flights |> show_query()
+planes |> show_query()
+```
+
+使用`select()`,`rename()`,`relocate(`时，都会添加`SELECT`语句，只是对列的名称或顺序进行了改变。
+
+```{r}
+planes |>
+  select(tailnum, type, manufacturer, model, year) |>
+  show_query()
+
+planes |>
+  select(tailnum, type, manufacturer, model, year) |>
+  rename(year_built = year) |>
+  show_query()
+
+planes |>
+  select(tailnum, type, manufacturer, model, year) |>
+  relocate(manufacturer, model, .before = type) |>
+  show_query()
+```
+
+### WHERE & ORDER BY
+
+`WHERE`等价于`filter()`，`ORDER BY`等价于`arrange()`。
+
+```{r}
+flights |>
+  filter(dest == "IAH" | dest == "HOU") |>
+  show_query()
+
+flights |>
+  filter(arr_delay > 0 & arr_delay < 20) |>
+  show_query()
+
+flights |>
+  filter(dest %in% c("IAH", "HOU")) |>
+  show_query()
+```
+
+### GROUP BY & OVER
+
+`GROUP BY`等价于`group_by()`，此时`group_by()`必须和`summarise()`一起使用。当`group_by()`和`mutate()`一起使用时，`group_by()`会被转换为`OVER`
+
+```{r}
+flights |>
+  group_by(dest) |>
+  summarize(dep_delay = mean(dep_delay, na.rm = TRUE)) |>
+  show_query()
+
+flights |>
+  group_by(year, month, day) |>
+  mutate(mean = mean(arr_delay, na.rm = TRUE)) |>
+  show_query()
+```
+
+### NULL
+
+SQL 使用`NULL`代替`NA`，更多有关`NULL`的内容见：https://modern-sql.com/concept/three-valued-logic
+
+```{r}
+flights |>
+  filter(!is.na(dep_delay)) |>
+  show_query()
+```
+
+### subquery
+
+当dplyr中使用还没有生成的列时，会生成一个子查询subquery。
+
+```{r}
+flights |>
+  mutate(
+    year1 = year + 1,
+    year2 = year1 + 1
+  ) |>
+  show_query()
+```
+
+### joins
+
+dplyr 中的`*_join()`函数与SQL中的十分相似。
+
+```{r}
+flights |>
+  left_join(planes |> rename(year_built = year), by = "tailnum") |>
+  show_query()
+```
+
+### function
+
+dbplyr 会对一些自定义函数或者内置函数进行转换。
+
+```{r}
+summarize_query <- function(df, ...) {
+  df |>
+    summarize(...) |>
+    show_query()
+}
+mutate_query <- function(df, ...) {
+  df |>
+    mutate(..., .keep = "none") |>
+    show_query()
+}
+```
+
+```{r}
+flights |>
+  group_by(year, month, day) |>
+  summarize_query(
+    mean = mean(arr_delay, na.rm = TRUE),
+    median = median(arr_delay, na.rm = TRUE)
+  )
+```
+
+```{r}
+flights |>
+  mutate_query(
+    description = if_else(arr_delay > 0, "delayed", "on-time")
+  )
+
+flights |>
+  mutate_query(
+    description =
+      case_when(
+        arr_delay < -5 ~ "early",
+        arr_delay < 5 ~ "on-time",
+        arr_delay >= 5 ~ "late"
+      )
+  )
+```
+
+------------------------------------------------------------------------
+
+更多有关转换对应关系见：https://dbplyr.tidyverse.org/reference/
