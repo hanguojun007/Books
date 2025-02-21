@@ -1,0 +1,211 @@
+---
+title: "Hierarchical data.qmd"
+author: "大番薯本薯"
+date: "2025-02-20"
+date-modified: "2025-02-20"
+format: "html"
+fig-width: 4
+fig-height: 4
+fig-align: center
+execute:
+  warning: false
+---
+
+```{r}
+#| echo: false
+
+source("_common.R")
+```
+
+# Hierarchical data
+
+本章介绍处理层级数据的方法。包括转换层级数据为数据框即将list转换为data.frame；json文件与list对象的转换。
+
+```{r}
+#| message: false
+
+library(tidyverse)
+library(repurrrsive)
+library(jsonlite)
+```
+
+## Lists
+
+#### list 合并
+
+`c()` 合并list，生成新的list。
+
+```{r}
+x1 <- c(list(1, 2), list(3, 4))
+
+str(x1)
+```
+
+### list-columns
+
+tibble 会将list视作向量，生成list-columns，而data.frame 不会。想要在data.frame中使用list，可以使用`I()`。
+
+```{r}
+df <- tibble(
+  x = 1:2,
+  y = c("a", "b"),
+  z = list(list(1, 2), list(3, 4, 5))
+)
+df
+
+data.frame(x = list(1:3, 3:5))
+
+data.frame(
+  x = I(list(1:2, 3:5)),
+  y = c("1, 2", "3, 4, 5")
+)
+```
+
+## Unnesting
+
+### unnest_wider()
+
+`unnest_wider()` 将list-columns展开，生成新的列。要求list-column中的list是named。
+
+```{r}
+df1 <- tribble(
+  ~x, ~y,
+  1, list(a = 11, b = 12),
+  2, list(a = 21, b = 22),
+  3, list(a = 31),
+)
+df1 |>
+  unnest_wider(y)
+```
+
+`unnest_wider()` 的参数 `names_sep` 默认为`NULL`，表示新的列名不包括源列名；给定连接字符后，会进行拼接。
+
+```{r}
+df1 |>
+  unnest_wider(y, names_sep = "_")
+```
+
+### unnest_longer()
+
+`unnest_longer()` 将list-columns展开，生成新的行。要求list-column中的list数据类型相同。
+
+```{r}
+df2 <- tribble(
+  ~x, ~y,
+  1, list(11, 12, 13),
+  2, list(),
+  3, list(31, 32)
+)
+df2 |>
+  unnest_longer(y)
+```
+
+`unnest_longer()` 的参数`keep_empty` 默认为`FALSE`，表示不保留空list的行；给定为`TRUE`时，空list的行值为`NA`。
+
+```{r}
+df2 |>
+  unnest_longer(y, keep_empty = TRUE)
+```
+
+### Inconsistent types
+
+当处理既没有named又数据类型不一致时，`unnest_longer()`会生成一个新的list，每个list包含一个元素。
+
+```{r}
+df3 <- tribble(
+  ~x, ~y,
+  "a", list(1),
+  "b", list("a", TRUE, 5)
+)
+df3 |>
+  unnest_longer(y)
+```
+
+更多示例见：`vignette("rectangling", package = "tidyr")`。
+
+## JSON
+
+### JSON 与 R 中的数据类型
+
+-   null 等价于 `NA`
+-   true 等价于 `TRUE`，false 等价于 `FALSE`
+-   number 等价于 `numeric()`，但JSON不支持`NaN`、`Inf`、`-Inf`。
+-   string 等价于 `character()`。
+-   array，使用`[]`，等价于 无name的 `list()`。
+-   object，使用`{}`，等价于 有name的 `list()`。
+
+日期与时间在JSON中只能用字符串表示，需要用`readr::parse_data()`,`readr::parse_datetime()`进行解析。
+
+### jsonlite
+
+jsonlite 中的 `read_json()` 函数，用于读取 json 文件，返回 R 对象；`parse_json()` 函数，用于解析 json 字符串，返回 R 对象；两者都基于 `fromJSON()` 函数。
+
+```{r}
+# repurrrsive 包的内置json文件
+gh_users_json()
+gh_users2 <- read_json(gh_users_json())
+
+str(parse_json("1"))
+str(parse_json("[1, 2, 3]"))
+str(parse_json('{"x": [1, 2, 3]}'))
+```
+
+函数中的参数`simplifyVector` 默认为`FALSE`，表示保留原始数据类型，否则转换为合适的R数据类型。具体类型转换见`?jsonlite::fromJSON()`。
+
+```{r}
+json <- '{
+  "status": "OK",
+  "results": [
+    {"name": "John", "age": 34},
+    {"name": "Susan", "age": 27}
+ ]
+}
+'
+parse_json(json, simplifyVector = TRUE)
+parse_json(json)
+```
+
+jsonlite 包提供了 `write_json()` 函数，用于将 R list 对象写为 json 文件。该函数基于`toJSON()`，其中 `auto_unbox` 参数会调整长度为1的list的数据类型，默认为`FALSE`。
+
+```{r}
+Json <- parse_json(json)
+write_json(Json, "test.json")
+# {
+#   "status": [
+#     "OK"
+#   ],
+#   "results": [
+#     {
+#       "name": [
+#         "John"
+#       ],
+#       "age": [
+#         34
+#       ]
+#     },
+#     {
+#       "name": [
+#         "Susan"
+#       ],
+#       "age": [
+#         27
+#       ]
+#     }
+#   ]
+# }
+write_json(Json, "test.json", auto_unbox = TRUE)
+# {
+#   "status": "OK",
+#   "results": [
+#     {
+#       "name": "John",
+#       "age": 34
+#     },
+#     {
+#       "name": "Susan",
+#       "age": 27
+#     }
+#   ]
+# }
+
+```

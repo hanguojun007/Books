@@ -1,0 +1,38 @@
+---
+title: "Arrow.qmd"
+author: "大番薯本薯"
+date: "2025-02-20"
+date-modified: "2025-02-20"
+format: "html"
+fig-width: 4
+fig-height: 4
+fig-align: center
+execute:
+  warning: false
+---
+
+```{r}
+#| echo: false
+
+source("_common.R")
+```
+
+# Arrow
+
+本章介绍使用 arrow 包对**parquet format**文件进行读写。**parquet format**格式不同于常规的按列或按行的数据存储格式，它在按列存储的基础上增加了**group row**信息。关于**parquet format**的介绍见：https://zhuanlan.zhihu.com/p/680143641，更多细节参考官网：https://parquet.apache.org/。
+
+
+```{r}
+#| message: false
+
+library(tidyverse)
+library(arrow)
+```
+
+```{r}
+curl::multi_download(
+  "https://r4ds.s3.us-west-2.amazonaws.com/seattle-library-checkouts.csv",
+  "data/seattle-library-checkouts.csv",
+  resume = TRUE
+)
+```
