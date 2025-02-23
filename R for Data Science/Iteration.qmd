@@ -1,0 +1,42 @@
+---
+title: "Iteration.qmd"
+author: "大番薯本薯"
+date: "2025-02-23"
+date-modified: "2025-02-23"
+format: "html"
+fig-width: 4
+fig-height: 4
+fig-align: center
+execute:
+  warning: false
+---
+
+```{r}
+#| echo: false
+
+source("_common.R")
+```
+
+# Iteration
+
+vectors函数的迭代——across
+
+三个参数：
+
+-   .cols
+-   .fns
+-   .names
+
+filter
+
+pivot_longer
+
+
+data.frame 函数的迭代——map
+
+purrr::map()
+
+```{r}
+
+set_names()
+```
