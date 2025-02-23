@@ -1,0 +1,22 @@
+---
+title: "web scraping.qmd"
+author: "大番薯本薯"
+date: "2025-02-22"
+date-modified: "2025-02-22"
+format: "html"
+fig-width: 4
+fig-height: 4
+fig-align: center
+execute:
+  warning: false
+---
+
+```{r}
+#| echo: false
+
+source("_common.R")
+```
+# web scraping
+
+使用 rvest 包进行网页解析
+

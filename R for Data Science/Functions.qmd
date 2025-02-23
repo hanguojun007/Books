@@ -1,0 +1,206 @@
+---
+title: "Functions.qmd"
+author: "大番薯本薯"
+date: "2025-02-22"
+date-modified: "2025-02-22"
+format: "html"
+fig-width: 4
+fig-height: 4
+fig-align: center
+execute:
+  warning: false
+---
+
+```{r}
+#| echo: false
+
+source("_common.R")
+```
+
+# Functions
+
+构成函数需要三个部分：函数名、函数主体和函数参数。
+
+```{r}
+name <- function(arguments) {
+  body
+}
+```
+
+本章介绍三种类型的函数：输入为vector的函数；输入输出为data.frame的函数；输入为data.frame输出为plot的函数。
+
+```{r}
+#| message: false
+
+library(tidyverse)
+library(nycflights13)
+```
+
+## Vector Functions
+
+### Mutate functions
+
+函数输入输出都是vector，类似于对vector的一种`mutate`。例如
+
+```{r}
+rescale01 <- function(x) {
+  rng <- range(x, na.rm = TRUE, finite = TRUE)
+  (x - rng[1]) / (rng[2] - rng[1])
+}
+
+df <- tibble(
+  a = rnorm(5),
+  b = rnorm(5),
+  c = rnorm(5),
+  d = rnorm(5),
+)
+
+
+df |> mutate(
+  a = rescale01(a),
+  b = rescale01(b),
+  c = rescale01(c),
+  d = rescale01(d),
+)
+```
+
+### Summary functions
+
+函数的输入是vector，输出是单个值，类似于`summarise`。例如
+
+```{r}
+cv <- function(x, na.rm = FALSE) {
+  sd(x, na.rm = na.rm) / mean(x, na.rm = na.rm)
+}
+
+df |> summarise(
+  a = cv(a),
+  b = cv(b),
+  c = cv(c),
+  d = cv(d)
+)
+```
+
+## Data.frame Functions
+
+使用多个上述vector函数，组合起来实现复杂功能时，我们需要进一步抽象，把函数组合成更复杂的函数，生成一种新的类型函数——data.frame函数。
+
+### tidy evaluation
+
+在data.frame函数中，需要用到一种新的技术`{{{}}}`，将函数的输入参数解释为要操作的数据框中的列。例如下面的例子实际中会报错：报错显示找不到`group_bar`列。因为`group_mean`函数会始终将`group_bar`解释为名为`group_var`的列，而不会动态的进行解释。
+
+```{r}
+#| error: true
+
+grouped_mean <- function(df, group_var, mean_var) {
+  df |>
+    group_by(group_var) |>
+    summarize(mean(mean_var))
+}
+
+diamonds |> grouped_mean(cut, carat)
+```
+
+我们可以使用更直观的例子，来说明这一点。
+
+```{r}
+df <- tibble(
+  mean_var = 1,
+  group_var = "g",
+  group = 1,
+  x = 10,
+  y = 100
+)
+
+df |> grouped_mean(group, x)
+df |> grouped_mean(group, y)
+```
+
+无论参数输入是什么，函数始终调用的是数据框中的`group_var`列和`mean_var`列。正确的函数构造方式应为下面，使用`{{{variable}}}`将参数包裹。
+
+```{r}
+grouped_mean <- function(df, group_var, mean_var) {
+  df |>
+    group_by({{ group_var }}) |>
+    summarize(mean({{ mean_var }}))
+}
+
+df |> grouped_mean(group, x)
+```
+
+在实际编写函数时，涉及到下面两类函数时，都需要使用`{{{variable}}}`。
+
+-   **Data-masking**：使用变量进行计算的函数，如`arrange()`,`filter()`,`summarise()`。
+-   **Tidy-selection**：选择数据列的函数，如`select()`,`rename()`。
+
+函数的说明文档中，通常会记载相关参数类型，如下图为`filter()`函数的说明文档。
+
+![](/image/filter.png)
+
+### pick()
+
+当需要在`data-masking`函数中使用`tidy-selection`函数时，可以使用`pick()`函数。例如
+
+```{r}
+count_missing <- function(df, group_vars, x_var) {
+  df |>
+    group_by(pick({{ group_vars }})) |>
+    summarize(
+      n_miss = sum(is.na({{ x_var }})),
+      .groups = "drop"
+    )
+}
+
+flights |>
+  count_missing(c(year, month, day), dep_time)
+```
+
+假如去掉`pick()`函数，结果如何?
+
+## Plot Functions
+
+因为`aes()`函数也是data-masking函数，所以也可以使用`{{}}`。例如：
+
+```{r}
+histogram <- function(df, var, binwidth = NULL) {
+  df |>
+    ggplot(aes(x = {{ var }})) +
+    geom_histogram(binwidth = binwidth)
+}
+
+diamonds |> histogram(carat, 0.1)
+```
+
+当需要添加动态标签时，又两种方法：
+
+-   `!!sym()` + `glue::glue()`，此时传入的参数是字符串
+
+```{r}
+
+histogram <- function(df, var, binwidth) {
+  label <- glue::glue("A histogram of {var} with binwidth {binwidth}")
+
+  df |>
+    ggplot(aes(x = !!sym(var))) +
+    geom_histogram(binwidth = binwidth) +
+    labs(title = label)
+}
+
+diamonds |> histogram("carat", 0.1)
+```
+
+-   `{{}}` + `rlang::englue()`，此时传入的参数是列名
+
+```{r}
+histogram <- function(df, var, binwidth) {
+  label <- rlang::englue("A histogram of {{var}} with binwidth {binwidth}")
+
+  df |>
+    ggplot(aes(x = {{ var }})) +
+    geom_histogram(binwidth = binwidth) +
+    labs(title = label)
+}
+
+diamonds |> histogram(carat, 0.1)
+```
+
